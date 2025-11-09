@@ -1,6 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- هذا الإذن موجود افتراضيًا وهو ضروري للاتصال بالإنترنت -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- ✨ الأذونات الجديدة التي أضفناها من المخطط ✨ -->
+    <!-- تسمح للتطبيق بحفظ (كتابة) الملفات على مساحة تخزين الهاتف -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <!-- تسمح للتطبيق بقراءة الملفات من مساحة تخزين الهاتف -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
 
     <application
       android:name=".MainApplication"
