@@ -242,7 +242,7 @@ const ReportsScreen = ({ navigation }) => {
 
     if (!reportData) {
       Toast.show({
-        type: 'warning',
+        type: 'info',
         text1: 'لا توجد بيانات',
         text2: 'لا توجد فواتير في الفترة المحددة',
         position: 'top',

@@ -2,6 +2,13 @@
 import RNPrint from 'react-native-print';
 import { formatCurrency, toEnglishNumbers, getCurrentDate, getCurrentTime } from '../utils/formatters';
 
+/**
+ * دالة طباعة الفاتورة مع جميع التحسينات المطبقة:
+ * 1. تقليل مسافات الجدول لزيادة عدد الأسطر.
+ * 2. تحويل ملخص الحسابات إلى أفقي (flex-box) بدلاً من جدول.
+ * 3. تقريب المسافات بين العناوين والقيم في الملخص.
+ * 4. منع انقسام قسم الملخص بين الصفحات (page-break-inside: avoid).
+ */
 export const printInvoice = async (invoice) => {
   try {
     const remaining = (invoice.total || 0) + (invoice.previousBalance || 0) - (invoice.payment || 0);
@@ -10,7 +17,7 @@ export const printInvoice = async (invoice) => {
     const currentTime = getCurrentTime();
     const invoiceDate = toEnglishNumbers(invoice.date);
 
-    // بناء HTML للطباعة - تصميم أبيض وأسود احترافي
+    // بناء HTML للطباعة - تصميم أبيض وأسود احترافي ومحسن
     const html = `
       <!DOCTYPE html>
       <html lang="ar" dir="rtl">
@@ -32,11 +39,12 @@ export const printInvoice = async (invoice) => {
             box-sizing: border-box;
           }
           
+          /* --- التعديل 1: تقليل ارتفاع السطر --- */
           body {
             font-family: 'Cairo', 'Tajawal', 'Arial', sans-serif;
             direction: rtl;
             font-size: 11.5pt;
-            line-height: 1.35;
+            line-height: 1.25; /* تم التعديل من 1.35 */
             color: #000;
             background: white;
           }
@@ -65,10 +73,11 @@ export const printInvoice = async (invoice) => {
             gap: 15px;
           }
           
+          /* --- تعديل: تنسيق B&W كما في النسخة المحسنة --- */
           .logo-badge {
             width: 55px;
             height: 55px;
-            background: #000;
+            background: #fff !important;
             border: 3px solid #000;
             border-radius: 12px;
             display: flex;
@@ -76,20 +85,20 @@ export const printInvoice = async (invoice) => {
             justify-content: center;
             font-size: 22pt;
             font-weight: 800;
-            color: #fff;
+            color: #000 !important;
             letter-spacing: 2px;
           }
           
           .store-info h1 {
             font-size: 22pt;
             font-weight: 800;
-            color: #000;
+            color: #000 !important;
             margin-bottom: 2px;
           }
           
           .store-subtitle {
             font-size: 9pt;
-            color: #333;
+            color: #333 !important;
             font-weight: 600;
           }
           
@@ -121,9 +130,10 @@ export const printInvoice = async (invoice) => {
             border: 2px solid #000;
           }
           
+          /* --- تعديل: تنسيق B&W كما في النسخة المحسنة --- */
           .contact-icon {
-            background: #000;
-            color: #fff;
+            background: #fff !important;
+            color: #000 !important;
             width: 28px;
             height: 28px;
             display: flex;
@@ -194,10 +204,11 @@ export const printInvoice = async (invoice) => {
             color: #000;
           }
           
+          /* --- التعديل 1: تقليل مسافات الجدول --- */
           .items-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 9.5pt;
+            font-size: 9pt; /* تم التعديل من 9.5pt */
             border-radius: 8px;
             overflow: hidden;
           }
@@ -205,14 +216,14 @@ export const printInvoice = async (invoice) => {
           .items-table th,
           .items-table td {
             border: 1.5px solid #000;
-            padding: 4px;
+            padding: 3px; /* تم التعديل من 4px */
             text-align: center;
             font-weight: 600;
           }
           
           .items-table th {
             font-weight: 700;
-            padding: 5px;
+            padding: 4px; /* تم التعديل من 5px */
             color: #000;
             background: #fff;
             border: 2px solid #000;
@@ -223,7 +234,7 @@ export const printInvoice = async (invoice) => {
             text-align: right;
             padding-right: 8px;
             font-weight: 600;
-            font-size: 11pt;
+            font-size: 10.5pt; /* تم التعديل من 11pt */
             color: #000;
           }
           
@@ -235,57 +246,80 @@ export const printInvoice = async (invoice) => {
             background: #f0f0f0;
           }
           
+          /* --- التعديل 2، 3، 4: حذف أنماط الجدول العمودي القديم --- */
+          /* .summary-table { ... } (تم الحذف) */
+          /* .summary-table td { ... } (تم الحذف) */
+          /* ... (باقي أنماط summary-table المحذوفة) ... */
+
+          /* --- التعديل 2، 3، 4: إضافة أنماط الملخص الأفقي الجديد --- */
           .summary-section {
             padding-top: 8px;
-            margin-top: 0;
+            margin-top: 8px;
             border-top: 3px solid #000;
+            page-break-inside: avoid; /* الطلب 4: منع انقسام الملخص */
           }
           
-          .summary-table {
-            width: 100%;
-            max-width: 450px;
-            margin-left: auto;
-            font-size: 12pt;
-            border-collapse: collapse;
+          .summary-grid {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            gap: 6px;
+            flex-wrap: wrap;
           }
           
-          .summary-table td {
-            padding: 6px 10px;
-          }
-          
-          .summary-table .label {
-            font-weight: 700;
-            text-align: right;
-            width: 50%;
-            color: #000;
-          }
-          
-          .summary-table .value {
-            text-align: right;
-            font-weight: 700;
-            color: #000;
-          }
-          
-          .summary-table .total-due-row td {
-            font-weight: 800;
-            border-top: 2px solid #000;
-            border-bottom: 2px solid #000;
-            background: #eee;
-            color: #000;
-            padding: 7px 10px;
-          }
-          
-          .summary-table .final-row {
+          /* الطلب 2 و 3: أفقي + مسافات قريبة */
+          .summary-item {
+            flex: 1 1 150px;
+            border: 2px solid #000;
+            border-radius: 8px;
+            padding: 5px 10px;
             background: #fff;
-            border: 2px solid #000;
+            display: flex;
+            flex-direction: row !important; /* إجبار الوضع الأفقي */
+            justify-content: flex-start; /* تقريب المسافة */
+            align-items: center;
+            min-height: 40px;
           }
           
-          .summary-table .final-row td {
-            font-weight: 800;
-            font-size: 14pt;
-            padding: 8px 10px;
+          .summary-item .label {
+            font-weight: 700;
+            font-size: 10.5pt;
             color: #000;
-            border: 2px solid #000;
+            margin-bottom: 0;
+            margin-left: 8px; /* إضافة مسافة فاصلة قريبة */
+          }
+          
+          .summary-item .value {
+            font-weight: 700;
+            font-size: 11.5pt;
+            color: #000;
+            line-height: 1.2;
+            white-space: nowrap;
+          }
+          
+          .summary-item.total-due-item {
+            background: #eee !important;
+          }
+          
+          .total-due-item .value {
+            font-weight: 800;
+            font-size: 12.5pt;
+          }
+          
+          .summary-item.final-item {
+            background: #fff !important;
+            border-width: 3px;
+          }
+          
+          .final-item .label {
+            font-weight: 800;
+            font-size: 11pt;
+          }
+          
+          .final-item .value {
+            font-weight: 800;
+            font-size: 13.5pt;
+            color: #000 !important;
           }
           
           @media print {
@@ -375,29 +409,30 @@ export const printInvoice = async (invoice) => {
             </tbody>
           </table>
           
+          <!-- --- التعديل 2 و 3: استبدال الجدول بالـ grid --- -->
           <section class="summary-section">
-            <table class="summary-table">
-              <tr>
-                <td class="label">مجموع الفاتورة:</td>
-                <td class="value">${formatCurrency(invoice.total || 0)} دينار</td>
-              </tr>
-              <tr>
-                <td class="label">الحساب السابق:</td>
-                <td class="value">${formatCurrency(invoice.previousBalance || 0)} دينار</td>
-              </tr>
-              <tr class="total-due-row">
-                <td class="label">المجموع الكلي:</td>
-                <td class="value">${formatCurrency(totalWithPrevious)} دينار</td>
-              </tr>
-              <tr>
-                <td class="label">المبلغ الواصل:</td>
-                <td class="value">${formatCurrency(invoice.payment || 0)} دينار</td>
-              </tr>
-              <tr class="final-row">
-                <td class="label">المبلغ المتبقي:</td>
-                <td class="value">${formatCurrency(remaining)} دينار</td>
-              </tr>
-            </table>
+            <div class="summary-grid">
+              <div class="summary-item">
+                <span class="label">مجموع الفاتورة:</span>
+                <span class="value">${formatCurrency(invoice.total || 0)} دينار</span>
+              </div>
+              <div class="summary-item">
+                <span class="label">الحساب السابق:</span>
+                <span class="value">${formatCurrency(invoice.previousBalance || 0)} دينار</span>
+              </div>
+              <div class="summary-item total-due-item">
+                <span class="label">المجموع الكلي:</span>
+                <span class="value">${formatCurrency(totalWithPrevious)} دينار</span>
+              </div>
+              <div class="summary-item">
+                <span class="label">المبلغ الواصل:</span>
+                <span class="value">${formatCurrency(invoice.payment || 0)} دينار</span>
+              </div>
+              <div class="summary-item final-item">
+                <span class="label">المبلغ المتبقي:</span>
+                <span class="value">${formatCurrency(remaining)} دينار</span>
+              </div>
+            </div>
           </section>
         </main>
       </body>
@@ -417,7 +452,9 @@ export const printInvoice = async (invoice) => {
   }
 };
 
-// طباعة كشف حساب زبون
+// 
+// --- دالة كشف الحساب (لم يتم تعديلها بناءً على طلبك) ---
+//
 export const printCustomerStatement = async (customerName, invoices) => {
   try {
     if (!invoices || invoices.length === 0) {

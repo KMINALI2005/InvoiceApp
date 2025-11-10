@@ -5,12 +5,31 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-import CreateInvoiceScreen from '../screens/CreateInvoiceScreen';
-import InvoicesScreen from '../screens/InvoicesScreen';
-import ProductsScreen from '../screens/ProductsScreen';
-import ReportsScreen from '../screens/ReportsScreen';
-import AuditingScreen from '../screens/AuditingScreen';
-import EditInvoiceScreen from '../screens/EditInvoiceScreen';
+// ✅ استيراد آمن مع معالجة الأخطاء
+let CreateInvoiceScreen, InvoicesScreen, ProductsScreen, ReportsScreen, AuditingScreen, EditInvoiceScreen;
+
+try {
+  CreateInvoiceScreen = require('../screens/CreateInvoiceScreen').default;
+  InvoicesScreen = require('../screens/InvoicesScreen').default;
+  ProductsScreen = require('../screens/ProductsScreen').default;
+  ReportsScreen = require('../screens/ReportsScreen').default;
+  AuditingScreen = require('../screens/AuditingScreen').default;
+  EditInvoiceScreen = require('../screens/EditInvoiceScreen').default;
+} catch (error) {
+  console.error('Error importing screens:', error);
+  // Fallback screens
+  const FallbackScreen = () => (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <Text>خطأ في تحميل الشاشة</Text>
+    </View>
+  );
+  CreateInvoiceScreen = CreateInvoiceScreen || FallbackScreen;
+  InvoicesScreen = InvoicesScreen || FallbackScreen;
+  ProductsScreen = ProductsScreen || FallbackScreen;
+  ReportsScreen = ReportsScreen || FallbackScreen;
+  AuditingScreen = AuditingScreen || FallbackScreen;
+  EditInvoiceScreen = EditInvoiceScreen || FallbackScreen;
+}
 
 const Stack = createNativeStackNavigator();
 
@@ -26,28 +45,68 @@ const AppNavigator = () => {
     { name: 'Auditing', icon: 'account-check', label: 'المراجعة' },
   ];
 
+  const handleNavigation = (screenName) => {
+    try {
+      if (navigationRef && navigationRef.isReady()) {
+        navigationRef.navigate(screenName);
+      }
+    } catch (error) {
+      console.error('Navigation error:', error);
+    }
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <NavigationContainer
         ref={(ref) => setNavigationRef(ref)}
         onStateChange={(state) => {
-          const route = state?.routes[state.index];
-          if (route) setCurrentScreen(route.name);
+          try {
+            const route = state?.routes[state.index];
+            if (route) setCurrentScreen(route.name);
+          } catch (error) {
+            console.error('State change error:', error);
+          }
         }}
+        onReady={() => console.log('Navigation ready')}
       >
         <Stack.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,
             animation: route.name === 'EditInvoice' ? 'slide_from_right' : 'default',
-            presentation: route.name === 'EditInvoice' ? 'card' : 'default',
+            presentation: route.name === 'EditInvoice' ? 'card' : 'card',
           })}
+          initialRouteName="CreateInvoice"
         >
-          <Stack.Screen name="CreateInvoice" component={CreateInvoiceScreen} />
-          <Stack.Screen name="Invoices" component={InvoicesScreen} />
-          <Stack.Screen name="Products" component={ProductsScreen} />
-          <Stack.Screen name="Reports" component={ReportsScreen} />
-          <Stack.Screen name="Auditing" component={AuditingScreen} />
-          <Stack.Screen name="EditInvoice" component={EditInvoiceScreen} />
+          <Stack.Screen 
+            name="CreateInvoice" 
+            component={CreateInvoiceScreen}
+            options={{ title: 'إنشاء فاتورة' }}
+          />
+          <Stack.Screen 
+            name="Invoices" 
+            component={InvoicesScreen}
+            options={{ title: 'الفواتير' }}
+          />
+          <Stack.Screen 
+            name="Products" 
+            component={ProductsScreen}
+            options={{ title: 'المنتجات' }}
+          />
+          <Stack.Screen 
+            name="Reports" 
+            component={ReportsScreen}
+            options={{ title: 'التقارير' }}
+          />
+          <Stack.Screen 
+            name="Auditing" 
+            component={AuditingScreen}
+            options={{ title: 'المراجعة' }}
+          />
+          <Stack.Screen 
+            name="EditInvoice" 
+            component={EditInvoiceScreen}
+            options={{ title: 'تعديل الفاتورة' }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
 
@@ -60,11 +119,7 @@ const AppNavigator = () => {
               styles.tab,
               currentScreen === tab.name && styles.activeTab
             ]}
-            onPress={() => {
-              if (navigationRef) {
-                navigationRef.navigate(tab.name);
-              }
-            }}
+            onPress={() => handleNavigation(tab.name)}
           >
             <Icon 
               name={tab.icon} 

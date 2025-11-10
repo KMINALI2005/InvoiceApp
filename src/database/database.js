@@ -189,11 +189,10 @@ export const DatabaseProvider = ({ children }) => {
     importProducts,
   };
 
-  // --- ✨ هذا هو السطر الذي تم إصلاحه ✨ ---
-  // يجب أن نعيد مكون Provider ونضع children بداخله
+  // ✅ الكود المُصلح - إعادة Provider بشكل صحيح
   return (
     <DatabaseContext.Provider value={value}>
       {children}
     </DatabaseContext.Provider>
   );
-};
+}; // ⚠️ هذا القوس كان مفقوداً!

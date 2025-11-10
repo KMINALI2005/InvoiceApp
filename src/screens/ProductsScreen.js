@@ -290,7 +290,7 @@ const ProductsScreen = ({ navigation }) => {
 
       const file = result[0];
       
-      if (!file.uri.endsWith('.json')) {
+      if (!file.uri.endsWith('.json') && !file.name.endsWith('.json')) {
         Toast.show({
           type: 'error',
           text1: 'خطأ',
