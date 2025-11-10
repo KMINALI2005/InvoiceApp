@@ -22,6 +22,9 @@ const CreateInvoiceScreen = ({ navigation }) => {
   // البيانات الأساسية
   const { products, invoices, saveInvoice, saveProduct } = useDatabase();
   const productNameInputRef = useRef(null);
+  const quantityInputRef = useRef(null);
+  const priceInputRef = useRef(null);
+  const customerNameInputRef = useRef(null);
   const [customerName, setCustomerName] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(getCurrentDate());
   
@@ -64,6 +67,11 @@ const CreateInvoiceScreen = ({ navigation }) => {
       );
       setFilteredProducts(filtered);
       setShowProductSuggestions(filtered.length > 0);
+      
+      // إذا كان هناك تطابق تام واحد فقط، اختره تلقائياً
+      if (filtered.length === 1 && filtered[0].name.toLowerCase() === productName.toLowerCase()) {
+        selectProduct(filtered[0]);
+      }
     } else {
       setShowProductSuggestions(false);
     }
@@ -79,6 +87,11 @@ const CreateInvoiceScreen = ({ navigation }) => {
       );
       setFilteredCustomers(filtered);
       setShowCustomerSuggestions(filtered.length > 0);
+      
+      // إذا كان هناك تطابق تام واحد فقط، اختره تلقائياً
+      if (filtered.length === 1 && filtered[0].toLowerCase() === customerName.toLowerCase()) {
+        selectCustomer(filtered[0]);
+      }
     } else {
       setShowCustomerSuggestions(false);
     }
@@ -92,7 +105,9 @@ const CreateInvoiceScreen = ({ navigation }) => {
     
     // التركيز تلقائياً على حقل الكمية
     setTimeout(() => {
-      // سيتم التركيز على حقل الكمية
+      if (quantityInputRef.current) {
+        quantityInputRef.current.focus();
+      }
     }, 100);
   };
 
@@ -120,6 +135,13 @@ const CreateInvoiceScreen = ({ navigation }) => {
         });
       }
     }
+    
+    // الانتقال لحقل المنتج
+    setTimeout(() => {
+      if (productNameInputRef.current) {
+        productNameInputRef.current.focus();
+      }
+    }, 150);
   };
 
   // إضافة منتج للفاتورة
@@ -136,6 +158,10 @@ const CreateInvoiceScreen = ({ navigation }) => {
       // التركيز على أول حقل فارغ
       if (!productName.trim() && productNameInputRef.current) {
         productNameInputRef.current.focus();
+      } else if (!quantity && quantityInputRef.current) {
+        quantityInputRef.current.focus();
+      } else if (!price && priceInputRef.current) {
+        priceInputRef.current.focus();
       }
       return;
     }
@@ -228,6 +254,13 @@ const CreateInvoiceScreen = ({ navigation }) => {
     setItemNotes(item.notes || '');
     setIsEditingItem(true);
     setEditingItemIndex(index);
+    
+    // التركيز على حقل اسم المنتج
+    setTimeout(() => {
+      if (productNameInputRef.current) {
+        productNameInputRef.current.focus();
+      }
+    }, 100);
   };
 
   // حذف منتج
@@ -423,12 +456,19 @@ const CreateInvoiceScreen = ({ navigation }) => {
             <Text style={styles.label}>اسم الزبون:</Text>
             <View style={styles.autocompleteContainer}>
               <TextInput
+                ref={customerNameInputRef}
                 style={styles.input}
                 value={customerName}
                 onChangeText={setCustomerName}
                 placeholder="أدخل اسم الزبون"
                 placeholderTextColor={COLORS.textLight}
                 onFocus={() => customerName && setShowCustomerSuggestions(true)}
+                returnKeyType="next"
+                onSubmitEditing={() => {
+                  if (productNameInputRef.current) {
+                    productNameInputRef.current.focus();
+                  }
+                }}
               />
               
               {showCustomerSuggestions && (
@@ -462,6 +502,12 @@ const CreateInvoiceScreen = ({ navigation }) => {
               onChangeText={setInvoiceDate}
               placeholder="YYYY-MM-DD"
               placeholderTextColor={COLORS.textLight}
+              returnKeyType="next"
+              onSubmitEditing={() => {
+                if (productNameInputRef.current) {
+                  productNameInputRef.current.focus();
+                }
+              }}
             />
           </View>
         </View>
@@ -484,6 +530,17 @@ const CreateInvoiceScreen = ({ navigation }) => {
                 placeholderTextColor={COLORS.textLight}
                 onFocus={() => productName && setShowProductSuggestions(true)}
                 returnKeyType="next"
+                onSubmitEditing={() => {
+                  // إذا كان هناك اقتراح واحد فقط، اختره تلقائياً
+                  if (filteredProducts.length === 1) {
+                    selectProduct(filteredProducts[0]);
+                  } else {
+                    // انتقل للكمية
+                    if (quantityInputRef.current) {
+                      quantityInputRef.current.focus();
+                    }
+                  }
+                }}
               />
               
               {showProductSuggestions && (
@@ -509,6 +566,7 @@ const CreateInvoiceScreen = ({ navigation }) => {
             <View style={[styles.inputGroup, styles.flex1]}>
               <Text style={styles.label}>الكمية:</Text>
               <TextInput
+                ref={quantityInputRef}
                 style={styles.input}
                 value={quantity}
                 onChangeText={setQuantity}
@@ -517,7 +575,9 @@ const CreateInvoiceScreen = ({ navigation }) => {
                 placeholderTextColor={COLORS.textLight}
                 returnKeyType="next"
                 onSubmitEditing={() => {
-                  // الانتقال لحقل السعر
+                  if (priceInputRef.current) {
+                    priceInputRef.current.focus();
+                  }
                 }}
               />
             </View>
@@ -525,6 +585,7 @@ const CreateInvoiceScreen = ({ navigation }) => {
             <View style={[styles.inputGroup, styles.flex1]}>
               <Text style={styles.label}>السعر:</Text>
               <TextInput
+                ref={priceInputRef}
                 style={styles.input}
                 value={price}
                 onChangeText={setPrice}
@@ -636,6 +697,7 @@ const CreateInvoiceScreen = ({ navigation }) => {
               placeholder="0"
               keyboardType="numeric"
               placeholderTextColor={COLORS.textLight}
+              returnKeyType="next"
             />
           </View>
 
@@ -648,6 +710,7 @@ const CreateInvoiceScreen = ({ navigation }) => {
               placeholder="0"
               keyboardType="numeric"
               placeholderTextColor={COLORS.textLight}
+              returnKeyType="done"
             />
           </View>
 
@@ -802,6 +865,9 @@ const styles = StyleSheet.create({
     padding: 14,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.backgroundLight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   suggestionName: {
     fontSize: 15,
@@ -1026,4 +1092,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CreateInvoiceScreen;
+export default CreateInvoiceScreen

@@ -347,14 +347,14 @@ export const printInvoice = async (invoice) => {
           
           <div class="contact-grid">
             <div class="contact-item">
-              <div class="contact-icon">ج</div>
+              <div class="contact-icon"></div>
               <div>
                 <div class="contact-name">جعفر</div>
                 <div class="contact-number">07731103122 | 07800379300</div>
               </div>
             </div>
             <div class="contact-item">
-              <div class="contact-icon">ح</div>
+              <div class="contact-icon"></div>
               <div>
                 <div class="contact-name">حسن</div>
                 <div class="contact-number">07826342265</div>
