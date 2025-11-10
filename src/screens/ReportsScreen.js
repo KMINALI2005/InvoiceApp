@@ -34,96 +34,115 @@ const ReportsScreen = ({ navigation }) => {
       return null;
     }
 
-    // فلترة الفواتير حسب الفترة
-    const filteredInvoices = invoices.filter(inv => 
-      inv.date >= startDate && inv.date <= endDate
-    );
+    try {
+      // فلترة الفواتير حسب الفترة
+      const filteredInvoices = invoices.filter(inv => 
+        inv.date >= startDate && inv.date <= endDate
+      );
 
-    if (filteredInvoices.length === 0) {
-      return null;
-    }
+      if (filteredInvoices.length === 0) {
+        return null;
+      }
 
-    // الإحصائيات الأساسية
-    const totalInvoices = filteredInvoices.length;
-    const totalSales = filteredInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
-    const totalPayments = filteredInvoices.reduce((sum, inv) => sum + (inv.payment || 0), 0);
-    const totalRemaining = filteredInvoices.reduce((sum, inv) => {
-      const remaining = (inv.total || 0) + (inv.previousBalance || 0) - (inv.payment || 0);
-      return sum + remaining;
-    }, 0);
-    const avgInvoice = totalSales / totalInvoices;
+      // الإحصائيات الأساسية
+      const totalInvoices = filteredInvoices.length;
+      const totalSales = filteredInvoices.reduce((sum, inv) => sum + (parseFloat(inv.total) || 0), 0);
+      const totalPayments = filteredInvoices.reduce((sum, inv) => sum + (parseFloat(inv.payment) || 0), 0);
+      const totalRemaining = filteredInvoices.reduce((sum, inv) => {
+        const remaining = (parseFloat(inv.total) || 0) + 
+          (parseFloat(inv.previousBalance) || 0) - 
+          (parseFloat(inv.payment) || 0);
+        return sum + remaining;
+      }, 0);
+      
+      // حماية من القسمة على صفر
+      const avgInvoice = totalInvoices > 0 ? totalSales / totalInvoices : 0;
 
     // إحصائيات المنتجات
     const productStats = {};
     filteredInvoices.forEach(inv => {
-      (inv.items || []).forEach(item => {
-        if (!productStats[item.product]) {
-          productStats[item.product] = {
-            name: item.product,
-            quantity: 0,
-            total: 0,
-            invoiceCount: 0,
-          };
-        }
-        productStats[item.product].quantity += item.quantity || 0;
-        productStats[item.product].total += item.total || 0;
-        productStats[item.product].invoiceCount++;
-      });
+      if (inv.items && Array.isArray(inv.items)) {
+        inv.items.forEach(item => {
+          const productName = item.product || 'منتج غير محدد';
+          if (!productStats[productName]) {
+            productStats[productName] = {
+              name: productName,
+              quantity: 0,
+              total: 0,
+              invoiceCount: 0,
+            };
+          }
+          productStats[productName].quantity += parseFloat(item.quantity) || 0;
+          productStats[productName].total += parseFloat(item.total) || 0;
+          productStats[productName].invoiceCount++;
+        });
+      }
     });
 
     const topProducts = Object.values(productStats)
+      .filter(p => p.total > 0) // تصفية المنتجات بدون مبيعات
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
 
     // إحصائيات الزبائن
     const customerStats = {};
     filteredInvoices.forEach(inv => {
-      if (!customerStats[inv.customer]) {
-        customerStats[inv.customer] = {
-          name: inv.customer,
+      const customerName = inv.customer || 'غير محدد';
+      if (!customerStats[customerName]) {
+        customerStats[customerName] = {
+          name: customerName,
           total: 0,
           invoiceCount: 0,
           totalPaid: 0,
           totalRemaining: 0,
         };
       }
-      customerStats[inv.customer].total += inv.total || 0;
-      customerStats[inv.customer].invoiceCount++;
-      customerStats[inv.customer].totalPaid += inv.payment || 0;
-      const remaining = (inv.total || 0) + (inv.previousBalance || 0) - (inv.payment || 0);
-      customerStats[inv.customer].totalRemaining += remaining;
+      customerStats[customerName].total += parseFloat(inv.total) || 0;
+      customerStats[customerName].invoiceCount++;
+      customerStats[customerName].totalPaid += parseFloat(inv.payment) || 0;
+      const remaining = (parseFloat(inv.total) || 0) + 
+        (parseFloat(inv.previousBalance) || 0) - 
+        (parseFloat(inv.payment) || 0);
+      customerStats[customerName].totalRemaining += remaining;
     });
 
     const topCustomers = Object.values(customerStats)
+      .filter(c => c.total > 0) // تصفية الزبائن بدون مشتريات
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
 
     // تحليل الأداء (مقارنة بالفترة السابقة)
-    const daysDiff = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24));
+    const daysDiff = Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)));
     const previousStartDate = new Date(startDate);
     previousStartDate.setDate(previousStartDate.getDate() - daysDiff);
     const previousEndDate = new Date(startDate);
     previousEndDate.setDate(previousEndDate.getDate() - 1);
 
-    const previousInvoices = invoices.filter(inv =>
-      inv.date >= previousStartDate.toISOString().split('T')[0] &&
-      inv.date <= previousEndDate.toISOString().split('T')[0]
-    );
+    const previousInvoices = invoices.filter(inv => {
+      const invDate = new Date(inv.date);
+      return invDate >= previousStartDate && invDate <= previousEndDate;
+    });
 
-    const prevTotalSales = previousInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+    const prevTotalSales = previousInvoices.reduce((sum, inv) => sum + (parseFloat(inv.total) || 0), 0);
     const prevTotalInvoices = previousInvoices.length;
 
     const salesChange = prevTotalSales > 0 
       ? ((totalSales - prevTotalSales) / prevTotalSales * 100) 
       : (totalSales > 0 ? 100 : 0);
-    
+
     const invoicesChange = prevTotalInvoices > 0
       ? ((totalInvoices - prevTotalInvoices) / prevTotalInvoices * 100)
       : (totalInvoices > 0 ? 100 : 0);
 
-    const avgInvoiceChange = prevTotalInvoices > 0
-      ? ((avgInvoice - (prevTotalSales / prevTotalInvoices)) / (prevTotalSales / prevTotalInvoices) * 100)
+    const prevAvgInvoice = prevTotalInvoices > 0 ? prevTotalSales / prevTotalInvoices : 0;
+    const avgInvoiceChange = prevAvgInvoice > 0
+      ? ((avgInvoice - prevAvgInvoice) / prevAvgInvoice * 100)
       : 0;
+
+    // حماية من NaN و Infinity
+    const salesChangeValue = isFinite(salesChange) ? salesChange : 0;
+    const invoicesChangeValue = isFinite(invoicesChange) ? invoicesChange : 0;
+    const avgInvoiceChangeValue = isFinite(avgInvoiceChange) ? avgInvoiceChange : 0;
 
     // فواتير مسددة وغير مسددة
     const paidInvoices = filteredInvoices.filter(inv => {
@@ -137,21 +156,31 @@ const ReportsScreen = ({ navigation }) => {
       startDate,
       endDate,
       totalInvoices,
-      totalSales,
-      totalPayments,
-      totalRemaining,
-      avgInvoice,
+      totalSales: isFinite(totalSales) ? totalSales : 0,
+      totalPayments: isFinite(totalPayments) ? totalPayments : 0,
+      totalRemaining: isFinite(totalRemaining) ? totalRemaining : 0,
+      avgInvoice: isFinite(avgInvoice) ? avgInvoice : 0,
       paidInvoices,
       unpaidInvoices,
       topProducts,
       topCustomers,
       performance: {
-        salesChange,
-        invoicesChange,
-        avgInvoiceChange,
+        salesChange: salesChangeValue,
+        invoicesChange: invoicesChangeValue,
+        avgInvoiceChange: avgInvoiceChangeValue,
       },
     };
-  }, [invoices, startDate, endDate, reportGenerated]);
+  } catch (error) {
+    console.error('Error generating report:', error);
+    Toast.show({
+      type: 'error',
+      text1: 'خطأ في إنشاء التقرير',
+      text2: 'حدث خطأ أثناء معالجة البيانات',
+      position: 'top',
+    });
+    return null;
+  }
+}, [invoices, startDate, endDate, reportGenerated]);
 
   // تعيين فترة زمنية محددة
   const setDateRange = (preset) => {

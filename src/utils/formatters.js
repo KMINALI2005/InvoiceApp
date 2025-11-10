@@ -1,6 +1,18 @@
 export const formatCurrency = (amount) => {
-  if (!amount && amount !== 0) return '0';
-  return amount.toLocaleString('en-US', {
+  // معالجة القيم الخاطئة
+  if (amount === null || amount === undefined || isNaN(amount) || !isFinite(amount)) {
+    return '0';
+  }
+  
+  // تحويل إلى رقم
+  const numAmount = Number(amount);
+  
+  // التحقق مرة أخرى بعد التحويل
+  if (isNaN(numAmount) || !isFinite(numAmount)) {
+    return '0';
+  }
+  
+  return numAmount.toLocaleString('en-US', {
     maximumFractionDigits: 0,
   });
 };

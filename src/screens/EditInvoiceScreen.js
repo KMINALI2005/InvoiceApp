@@ -1,4 +1,4 @@
-// src/screens/CreateInvoiceScreen.js
+// src/screens/EditInvoiceScreen.js
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -11,19 +11,21 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useDatabase } from '../database/database';
 import { formatCurrency, toEnglishNumbers, getCurrentDate } from '../utils/formatters';
-import { COLORS, GRADIENTS } from '../utils/colors';
+import { COLORS } from '../utils/colors';
 import Toast from 'react-native-toast-message';
 
-const CreateInvoiceScreen = ({ navigation }) => {
+const EditInvoiceScreen = ({ route, navigation }) => {
+  const { invoice } = route.params;
+  const { products, updateInvoice, saveProduct } = useDatabase();
+  
   // البيانات الأساسية
-  const { products, invoices, saveInvoice, saveProduct } = useDatabase();
-  const productNameInputRef = useRef(null);
-  const [customerName, setCustomerName] = useState('');
-  const [invoiceDate, setInvoiceDate] = useState(getCurrentDate());
+  const [customerName, setCustomerName] = useState(invoice.customer || '');
+  const [invoiceDate, setInvoiceDate] = useState(invoice.date || getCurrentDate());
   
   // بيانات المنتج الحالي
   const [productName, setProductName] = useState('');
@@ -32,21 +34,72 @@ const CreateInvoiceScreen = ({ navigation }) => {
   const [itemNotes, setItemNotes] = useState('');
   
   // قائمة المنتجات في الفاتورة
-  const [invoiceItems, setInvoiceItems] = useState([]);
+  const [invoiceItems, setInvoiceItems] = useState(invoice.items || []);
   
   // المبالغ المالية
-  const [previousBalance, setPreviousBalance] = useState('');
-  const [paymentAmount, setPaymentAmount] = useState('');
+  const [previousBalance, setPreviousBalance] = useState(String(invoice.previousBalance || 0));
+  const [paymentAmount, setPaymentAmount] = useState(String(invoice.payment || 0));
   
   // حالة البحث والاقتراحات
   const [showProductSuggestions, setShowProductSuggestions] = useState(false);
-  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
-  const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   
   // حالة التعديل
   const [isEditingItem, setIsEditingItem] = useState(false);
   const [editingItemIndex, setEditingItemIndex] = useState(null);
+
+  const productNameInputRef = useRef(null);
+
+  // إضافة تأكيد عند الخروج إذا كانت هناك تعديلات
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (!hasChanges) {
+        return;
+      }
+
+      e.preventDefault();
+
+      Alert.alert(
+        'تجاهل التغييرات؟',
+        'لديك تعديلات لم يتم حفظها. هل تريد تجاهلها؟',
+        [
+          { text: 'البقاء', style: 'cancel', onPress: () => {} },
+          {
+            text: 'تجاهل',
+            style: 'destructive',
+            onPress: () => navigation.dispatch(e.data.action),
+          },
+        ]
+      );
+    });
+
+    return unsubscribe;
+  }, [navigation, hasChanges]);
+
+  // مراقبة التغييرات
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const originalData = JSON.stringify({
+      customer: invoice.customer,
+      date: invoice.date,
+      items: invoice.items,
+      previousBalance: invoice.previousBalance,
+      payment: invoice.payment,
+    });
+
+    const currentData = JSON.stringify({
+      customer: customerName,
+      date: invoiceDate,
+      items: invoiceItems,
+      previousBalance: parseFloat(previousBalance || 0),
+      payment: parseFloat(paymentAmount || 0),
+    });
+
+    setHasChanges(originalData !== currentData);
+  }, [customerName, invoiceDate, invoiceItems, previousBalance, paymentAmount]);
 
   // الحسابات
   const lineTotal = parseFloat(quantity || 0) * parseFloat(price || 0);
@@ -69,60 +122,12 @@ const CreateInvoiceScreen = ({ navigation }) => {
     }
   }, [productName, products]);
 
-  // البحث عن الزبائن
-  useEffect(() => {
-    if (customerName.trim().length > 0) {
-      // استخراج أسماء الزبائن الفريدة من الفواتير
-      const uniqueCustomers = [...new Set(invoices.map(inv => inv.customer))];
-      const filtered = uniqueCustomers.filter(name =>
-        name.toLowerCase().includes(customerName.toLowerCase())
-      );
-      setFilteredCustomers(filtered);
-      setShowCustomerSuggestions(filtered.length > 0);
-    } else {
-      setShowCustomerSuggestions(false);
-    }
-  }, [customerName, invoices]);
-
-  // اختيار منتج من الاقتراحات
   const selectProduct = (product) => {
     setProductName(product.name);
     setPrice(product.price.toString());
     setShowProductSuggestions(false);
-    
-    // التركيز تلقائياً على حقل الكمية
-    setTimeout(() => {
-      // سيتم التركيز على حقل الكمية
-    }, 100);
   };
 
-  // اختيار زبون من الاقتراحات
-  const selectCustomer = (customer) => {
-    setCustomerName(customer);
-    setShowCustomerSuggestions(false);
-    
-    // جلب آخر فاتورة لهذا الزبون لحساب الرصيد السابق
-    const customerInvoices = invoices.filter(inv => inv.customer === customer);
-    if (customerInvoices.length > 0) {
-      const sortedInvoices = customerInvoices.sort((a, b) => b.id - a.id);
-      const latestInvoice = sortedInvoices[0];
-      const remaining = (latestInvoice.total || 0) + 
-        (latestInvoice.previousBalance || 0) - 
-        (latestInvoice.payment || 0);
-      
-      if (remaining !== 0) {
-        setPreviousBalance(String(remaining));
-        Toast.show({
-          type: 'info',
-          text1: 'تم جلب الرصيد السابق',
-          text2: `الرصيد: ${formatCurrency(remaining)} دينار`,
-          position: 'top',
-        });
-      }
-    }
-  };
-
-  // إضافة منتج للفاتورة
   const addItemToInvoice = async () => {
     if (!productName.trim() || !quantity || !price) {
       Toast.show({
@@ -132,11 +137,6 @@ const CreateInvoiceScreen = ({ navigation }) => {
         position: 'top',
         visibilityTime: 2000,
       });
-      
-      // التركيز على أول حقل فارغ
-      if (!productName.trim() && productNameInputRef.current) {
-        productNameInputRef.current.focus();
-      }
       return;
     }
 
@@ -154,7 +154,6 @@ const CreateInvoiceScreen = ({ navigation }) => {
       return;
     }
 
-    // حفظ المنتج في قاعدة البيانات
     try {
       await saveProduct({
         name: productName.trim(),
@@ -173,7 +172,6 @@ const CreateInvoiceScreen = ({ navigation }) => {
     };
 
     if (isEditingItem) {
-      // تحديث منتج موجود
       const updatedItems = [...invoiceItems];
       updatedItems[editingItemIndex] = newItem;
       setInvoiceItems(updatedItems);
@@ -188,7 +186,6 @@ const CreateInvoiceScreen = ({ navigation }) => {
         visibilityTime: 1500,
       });
     } else {
-      // إضافة منتج جديد
       setInvoiceItems([...invoiceItems, newItem]);
       
       Toast.show({
@@ -200,10 +197,8 @@ const CreateInvoiceScreen = ({ navigation }) => {
       });
     }
 
-    // تنظيف الحقول
     clearItemFields();
     
-    // التركيز مباشرة على حقل اسم المنتج للإدخال السريع
     setTimeout(() => {
       if (productNameInputRef.current) {
         productNameInputRef.current.focus();
@@ -211,7 +206,6 @@ const CreateInvoiceScreen = ({ navigation }) => {
     }, 100);
   };
 
-  // تنظيف حقول المنتج
   const clearItemFields = () => {
     setProductName('');
     setQuantity('');
@@ -219,7 +213,6 @@ const CreateInvoiceScreen = ({ navigation }) => {
     setItemNotes('');
   };
 
-  // تعديل منتج
   const editItem = (index) => {
     const item = invoiceItems[index];
     setProductName(item.product);
@@ -230,7 +223,6 @@ const CreateInvoiceScreen = ({ navigation }) => {
     setEditingItemIndex(index);
   };
 
-  // حذف منتج
   const removeItem = (index) => {
     Alert.alert(
       'تأكيد الحذف',
@@ -256,15 +248,13 @@ const CreateInvoiceScreen = ({ navigation }) => {
     );
   };
 
-  // إلغاء التعديل
   const cancelEdit = () => {
     setIsEditingItem(false);
     setEditingItemIndex(null);
     clearItemFields();
   };
 
-  // حفظ الفاتورة
-  const handleSaveInvoice = async () => {
+  const handleUpdateInvoice = async () => {
     if (!customerName.trim()) {
       Toast.show({
         type: 'error',
@@ -285,8 +275,10 @@ const CreateInvoiceScreen = ({ navigation }) => {
       return;
     }
 
+    setIsSaving(true); // بدء التحميل
+
     try {
-      const invoice = {
+      const updatedInvoice = {
         customer: customerName.trim(),
         date: invoiceDate,
         items: invoiceItems,
@@ -295,57 +287,33 @@ const CreateInvoiceScreen = ({ navigation }) => {
         payment: parseFloat(paymentAmount || 0),
       };
 
-      await saveInvoice(invoice);
+      await updateInvoice(invoice.id, updatedInvoice);
 
       Toast.show({
         type: 'success',
-        text1: 'نجح الحفظ! 🎉',
-        text2: 'تم حفظ الفاتورة بنجاح',
+        text1: 'تم التحديث! 🎉',
+        text2: 'تم تحديث الفاتورة بنجاح',
         position: 'top',
         visibilityTime: 2000,
       });
 
-      // تنظيف النموذج
-      clearInvoiceForm();
+      setHasChanges(false); // إلغاء تتبع التغييرات
+
+      setTimeout(() => {
+        navigation.goBack();
+      }, 500);
     } catch (error) {
       Toast.show({
         type: 'error',
-        text1: 'فشل الحفظ',
-        text2: 'حدث خطأ أثناء حفظ الفاتورة',
+        text1: 'فشل التحديث',
+        text2: 'حدث خطأ أثناء تحديث الفاتورة',
         position: 'top',
       });
+    } finally {
+      setIsSaving(false); // إنهاء التحميل
     }
   };
 
-  // مسح الفاتورة
-  const clearInvoiceForm = () => {
-    setCustomerName('');
-    setInvoiceDate(getCurrentDate());
-    setInvoiceItems([]);
-    setPreviousBalance('');
-    setPaymentAmount('');
-    clearItemFields();
-    setIsEditingItem(false);
-    setEditingItemIndex(null);
-  };
-
-  // تأكيد مسح الفاتورة
-  const confirmClearInvoice = () => {
-    Alert.alert(
-      'تأكيد المسح',
-      'هل أنت متأكد من مسح هذه الفاتورة؟',
-      [
-        { text: 'إلغاء', style: 'cancel' },
-        {
-          text: 'مسح',
-          style: 'destructive',
-          onPress: clearInvoiceForm,
-        },
-      ]
-    );
-  };
-
-  // عرض منتج في القائمة
   const renderInvoiceItem = ({ item, index }) => (
     <View style={styles.invoiceItem}>
       <View style={styles.itemHeader}>
@@ -406,8 +374,19 @@ const CreateInvoiceScreen = ({ navigation }) => {
     >
       {/* الهيدر */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>محلات ابو جعفر الرديني</Text>
-        <Text style={styles.headerSubtitle}>للمواد الغذائية والحلويات</Text>
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Icon name="arrow-right" size={28} color="#fff" />
+        </TouchableOpacity>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>تعديل الفاتورة</Text>
+          <Text style={styles.headerSubtitle}>
+            رقم #{toEnglishNumbers(invoice.id)}
+          </Text>
+        </View>
+        <View style={{ width: 28 }} />
       </View>
 
       <ScrollView 
@@ -421,37 +400,13 @@ const CreateInvoiceScreen = ({ navigation }) => {
           
           <View style={styles.inputGroup}>
             <Text style={styles.label}>اسم الزبون:</Text>
-            <View style={styles.autocompleteContainer}>
-              <TextInput
-                style={styles.input}
-                value={customerName}
-                onChangeText={setCustomerName}
-                placeholder="أدخل اسم الزبون"
-                placeholderTextColor={COLORS.textLight}
-                onFocus={() => customerName && setShowCustomerSuggestions(true)}
-              />
-              
-              {showCustomerSuggestions && (
-                <View style={styles.suggestionsContainer}>
-                  {filteredCustomers.map((customer, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={styles.suggestionItem}
-                      onPress={() => selectCustomer(customer)}
-                    >
-                      <Icon name="account" size={20} color={COLORS.primary} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.suggestionName}>{customer}</Text>
-                        <Text style={styles.suggestionHint}>
-                          اضغط للاختيار
-                        </Text>
-                      </View>
-                      <Icon name="chevron-left" size={20} color={COLORS.textLight} />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
+            <TextInput
+              style={styles.input}
+              value={customerName}
+              onChangeText={setCustomerName}
+              placeholder="أدخل اسم الزبون"
+              placeholderTextColor={COLORS.textLight}
+            />
           </View>
 
           <View style={styles.inputGroup}>
@@ -516,9 +471,6 @@ const CreateInvoiceScreen = ({ navigation }) => {
                 keyboardType="numeric"
                 placeholderTextColor={COLORS.textLight}
                 returnKeyType="next"
-                onSubmitEditing={() => {
-                  // الانتقال لحقل السعر
-                }}
               />
             </View>
 
@@ -665,23 +617,29 @@ const CreateInvoiceScreen = ({ navigation }) => {
         {/* أزرار الإجراءات */}
         <View style={styles.actionsSection}>
           <TouchableOpacity
-            style={[styles.button, styles.saveButton]}
-            onPress={handleSaveInvoice}
+            style={[styles.button, styles.updateButton]}
+            onPress={handleUpdateInvoice}
+            disabled={isSaving}
           >
-            <Icon name="content-save" size={22} color="#fff" />
-            <Text style={styles.buttonText}>حفظ الفاتورة</Text>
+            {isSaving ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Icon name="content-save" size={22} color="#fff" />
+            )}
+            <Text style={styles.buttonText}>
+              {isSaving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.button, styles.clearButton]}
-            onPress={confirmClearInvoice}
+            style={[styles.button, styles.cancelButtonStyle]}
+            onPress={() => navigation.goBack()}
           >
-            <Icon name="delete-sweep" size={22} color="#fff" />
-            <Text style={styles.buttonText}>مسح</Text>
+            <Icon name="close" size={22} color="#fff" />
+            <Text style={styles.buttonText}>إلغاء</Text>
           </TouchableOpacity>
         </View>
 
-        {/* مساحة إضافية للتمرير */}
         <View style={{ height: 100 }} />
       </ScrollView>
     </KeyboardAvoidingView>
@@ -696,7 +654,9 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: COLORS.primary,
     padding: 24,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     elevation: 8,
@@ -705,16 +665,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
   },
+  backButton: {
+    padding: 4,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '800',
     color: '#fff',
-    marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 14,
     color: '#f0fdfa',
     fontWeight: '600',
+    marginTop: 4,
   },
   content: {
     flex: 1,
@@ -813,11 +780,6 @@ const styles = StyleSheet.create({
     color: COLORS.success,
     fontWeight: '700',
     marginTop: 4,
-  },
-  suggestionHint: {
-    fontSize: 11,
-    color: COLORS.textLight,
-    marginTop: 2,
   },
   lineTotalCard: {
     backgroundColor: COLORS.backgroundLight,
@@ -1018,12 +980,12 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 16,
   },
-  saveButton: {
+  updateButton: {
     backgroundColor: COLORS.primary,
   },
-  clearButton: {
+  cancelButtonStyle: {
     backgroundColor: COLORS.danger,
   },
 });
 
-export default CreateInvoiceScreen;
+export default EditInvoiceScreen;

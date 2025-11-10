@@ -633,13 +633,37 @@ const ProductsScreen = ({ navigation }) => {
             </Text>
           </View>
         ) : (
-          <View style={styles.productsGrid}>
+          <View style={styles.productsListContainer}>
             {filteredAndSortedProducts.map((product, index) => (
-              <ProductCard 
-                key={product.id} 
-                product={product} 
-                index={index}
-              />
+              <View key={product.id} style={styles.productRow}>
+                <View style={styles.productInfo}>
+                  <View style={styles.productNameContainer}>
+                    <Text style={styles.productNumber}>{toEnglishNumbers(index + 1)}.</Text>
+                    <Text style={styles.productNameText}>{product.name}</Text>
+                  </View>
+                  <Text style={styles.productPriceText}>
+                    {formatCurrency(product.price)} دينار
+                  </Text>
+                </View>
+                
+                <View style={styles.productRowActions}>
+                  <TouchableOpacity
+                    style={[styles.productRowButton, styles.editRowButton]}
+                    onPress={() => handleEditProduct(product)}
+                  >
+                    <Icon name="pencil" size={18} color="#fff" />
+                    <Text style={styles.productRowButtonText}>تعديل</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.productRowButton, styles.deleteRowButton]}
+                    onPress={() => handleDeleteProduct(product)}
+                  >
+                    <Icon name="delete" size={18} color="#fff" />
+                    <Text style={styles.productRowButtonText}>حذف</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             ))}
           </View>
         )}
@@ -1205,6 +1229,74 @@ const styles = StyleSheet.create({
     fontSize: isTablet ? 16 : 15,
     fontWeight: '700',
     color: '#fff',
+  },
+  productsListContainer: {
+    gap: isTablet ? 12 : 10,
+  },
+  productRow: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: isTablet ? 16 : 14,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+    elevation: 2,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  productInfo: {
+    marginBottom: isTablet ? 12 : 10,
+  },
+  productNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  productNumber: {
+    fontSize: isTablet ? 18 : 16,
+    fontWeight: '700',
+    color: COLORS.primary,
+    minWidth: isTablet ? 35 : 30,
+  },
+  productNameText: {
+    flex: 1,
+    fontSize: isTablet ? 18 : 16,
+    fontWeight: '700',
+    color: COLORS.textDark,
+  },
+  productPriceText: {
+    fontSize: isTablet ? 20 : 18,
+    fontWeight: '800',
+    color: COLORS.success,
+    marginLeft: isTablet ? 38 : 33,
+  },
+  productRowActions: {
+    flexDirection: 'row',
+    gap: isTablet ? 10 : 8,
+  },
+  productRowButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: isTablet ? 10 : 9,
+    borderRadius: 8,
+  },
+  editRowButton: {
+    backgroundColor: COLORS.primary,
+  },
+  deleteRowButton: {
+    backgroundColor: COLORS.danger,
+  },
+  productRowButtonText: {
+    color: '#fff',
+    fontSize: isTablet ? 13 : 12,
+    fontWeight: '700',
   },
 });
 

@@ -1,5 +1,5 @@
 // src/screens/InvoicesScreen.js
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,28 +8,33 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
-  FlatList,
   Dimensions,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { pick, isCancel, types } from '@react-native-documents/picker';
 import { useDatabase } from '../database/database';
 import { formatCurrency, toEnglishNumbers } from '../utils/formatters';
 import { COLORS } from '../utils/colors';
 import Toast from 'react-native-toast-message';
 import { printInvoice, printCustomerStatement } from '../services/printService';
 import { shareInvoiceText, shareCustomerStatement, exportInvoicesJSON } from '../services/shareService';
+import { importFromJSON } from '../services/shareService';
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
 
 const InvoicesScreen = ({ navigation }) => {
-  const { invoices, deleteInvoice, loading } = useDatabase();
+  const { invoices, deleteInvoice, clearAllInvoices, importInvoices, loading } = useDatabase();
   
   // حالة البحث والفلترة
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState('all'); // all, paid, unpaid
+  const [filterType, setFilterType] = useState('all');
   const [expandedCustomers, setExpandedCustomers] = useState(new Set());
+  
+  // حالة المودال
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
 
   // إحصائيات الفواتير
   const stats = useMemo(() => {
@@ -61,7 +66,6 @@ const InvoicesScreen = ({ navigation }) => {
   const groupedInvoices = useMemo(() => {
     let filtered = [...invoices];
 
-    // تطبيق الفلتر
     if (filterType === 'paid') {
       filtered = filtered.filter(inv => {
         const remaining = (inv.total || 0) + (inv.previousBalance || 0) - (inv.payment || 0);
@@ -74,7 +78,6 @@ const InvoicesScreen = ({ navigation }) => {
       });
     }
 
-    // تطبيق البحث
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(inv => 
@@ -83,7 +86,6 @@ const InvoicesScreen = ({ navigation }) => {
       );
     }
 
-    // التجميع حسب الزبون
     const grouped = {};
     filtered.forEach(inv => {
       if (!grouped[inv.customer]) {
@@ -92,7 +94,6 @@ const InvoicesScreen = ({ navigation }) => {
       grouped[inv.customer].push(inv);
     });
 
-    // ترتيب الفواتير داخل كل مجموعة
     Object.keys(grouped).forEach(customer => {
       grouped[customer].sort((a, b) => b.id - a.id);
     });
@@ -100,11 +101,12 @@ const InvoicesScreen = ({ navigation }) => {
     return grouped;
   }, [invoices, searchQuery, filterType]);
 
-  const customerNames = Object.keys(groupedInvoices).sort((a, b) => 
-    a.localeCompare(b, 'ar')
-  );
+  const customerNames = Object.keys(groupedInvoices).sort((a, b) => {
+    const latestInvoiceA = groupedInvoices[a][0]; // أول فاتورة (الأحدث)
+    const latestInvoiceB = groupedInvoices[b][0];
+    return latestInvoiceB.id - latestInvoiceA.id; // الأحدث أولاً
+  });
 
-  // Toggle توسيع مجموعة الزبون
   const toggleCustomerExpansion = (customerName) => {
     setExpandedCustomers(prev => {
       const newSet = new Set(prev);
@@ -117,7 +119,6 @@ const InvoicesScreen = ({ navigation }) => {
     });
   };
 
-  // حذف فاتورة
   const handleDeleteInvoice = (invoiceId, customerName) => {
     Alert.alert(
       'تأكيد الحذف',
@@ -150,7 +151,121 @@ const InvoicesScreen = ({ navigation }) => {
     );
   };
 
-  // طباعة فاتورة
+  // حذف جميع الفواتير
+  const handleDeleteAllInvoices = async () => {
+    try {
+      await clearAllInvoices();
+      setShowDeleteAllModal(false);
+      Toast.show({
+        type: 'success',
+        text1: 'تم المسح',
+        text2: `تم حذف ${toEnglishNumbers(stats.total)} فاتورة بنجاح`,
+        position: 'top',
+      });
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'فشل المسح',
+        text2: 'حدث خطأ أثناء مسح الفواتير',
+        position: 'top',
+      });
+    }
+  };
+
+  // تصدير الفواتير
+  const handleExportInvoices = async () => {
+    if (invoices.length === 0) {
+      Toast.show({
+        type: 'warning',
+        text1: 'تنبيه',
+        text2: 'لا توجد فواتير للتصدير',
+        position: 'top',
+      });
+      return;
+    }
+
+    const result = await exportInvoicesJSON(invoices);
+    
+    if (result.success) {
+      Toast.show({
+        type: 'success',
+        text1: 'تم التصدير! 📤',
+        text2: `تم تصدير ${toEnglishNumbers(invoices.length)} فاتورة`,
+        position: 'top',
+      });
+    } else if (!result.cancelled) {
+      Toast.show({
+        type: 'error',
+        text1: 'فشل التصدير',
+        text2: result.error || 'حدث خطأ أثناء التصدير',
+        position: 'top',
+      });
+    }
+  };
+
+  // استيراد الفواتير
+  const handleImportInvoices = async () => {
+    try {
+      const result = await pick({
+        type: [types.allFiles],
+      });
+
+      const file = result[0];
+      
+      if (!file.uri.endsWith('.json')) {
+        Toast.show({
+          type: 'error',
+          text1: 'خطأ',
+          text2: 'يرجى اختيار ملف JSON فقط',
+          position: 'top',
+        });
+        return;
+      }
+
+      const importResult = await importFromJSON(file.uri);
+      
+      if (importResult.success && importResult.type === 'invoices') {
+        Alert.alert(
+          'تأكيد الاستيراد',
+          `سيتم استيراد ${toEnglishNumbers(importResult.count)} فاتورة ومسح جميع الفواتير الحالية. هل أنت متأكد؟`,
+          [
+            { text: 'إلغاء', style: 'cancel' },
+            {
+              text: 'استيراد',
+              onPress: async () => {
+                await importInvoices(importResult.data);
+                Toast.show({
+                  type: 'success',
+                  text1: 'تم الاستيراد! 📥',
+                  text2: `تم استيراد ${toEnglishNumbers(importResult.count)} فاتورة`,
+                  position: 'top',
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'فشل الاستيراد',
+          text2: importResult.error || 'صيغة الملف غير صحيحة',
+          position: 'top',
+        });
+      }
+    } catch (err) {
+      if (isCancel(err)) {
+        // المستخدم ألغى العملية
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'خطأ',
+          text2: 'فشل اختيار الملف',
+          position: 'top',
+        });
+      }
+    }
+  };
+
   const handlePrintInvoice = async (invoice) => {
     const result = await printInvoice(invoice);
     
@@ -171,7 +286,6 @@ const InvoicesScreen = ({ navigation }) => {
     }
   };
 
-  // مشاركة فاتورة
   const handleShareInvoice = async (invoice) => {
     const result = await shareInvoiceText(invoice);
     
@@ -192,7 +306,6 @@ const InvoicesScreen = ({ navigation }) => {
     }
   };
   
-  // طباعة كشف حساب زبون
   const handlePrintCustomerStatement = async (customerName, invoices) => {
     const result = await printCustomerStatement(customerName, invoices);
     
@@ -213,7 +326,6 @@ const InvoicesScreen = ({ navigation }) => {
     }
   };
   
-  // مشاركة كشف حساب زبون
   const handleShareCustomerStatement = async (customerName, invoices) => {
     const result = await shareCustomerStatement(customerName, invoices);
     
@@ -233,39 +345,11 @@ const InvoicesScreen = ({ navigation }) => {
       });
     }
   };
-  
-  // تصدير جميع الفواتير
-  const handleExportAllInvoices = async () => {
-    const result = await exportInvoicesJSON(invoices);
-    
-    if (result.success) {
-      Toast.show({
-        type: 'success',
-        text1: 'تم التصدير',
-        text2: 'تم تصدير الفواتير بنجاح',
-        position: 'top',
-      });
-    } else if (!result.cancelled) {
-      Toast.show({
-        type: 'error',
-        text1: 'فشل التصدير',
-        text2: result.error || 'حدث خطأ أثناء التصدير',
-        position: 'top',
-      });
-    }
-  };
 
-  // تعديل فاتورة
   const handleEditInvoice = (invoice) => {
-    Toast.show({
-      type: 'info',
-      text1: 'قريباً',
-      text2: 'ميزة التعديل قيد التطوير',
-      position: 'top',
-    });
+    navigation.navigate('EditInvoice', { invoice });
   };
 
-  // عرض بطاقة الإحصائيات
   const StatCard = ({ icon, label, value, color, bgColor }) => (
     <View style={[styles.statCard, { backgroundColor: bgColor }]}>
       <View style={[styles.statIconContainer, { backgroundColor: color }]}>
@@ -280,7 +364,6 @@ const InvoicesScreen = ({ navigation }) => {
     </View>
   );
 
-  // عرض فاتورة واحدة
   const InvoiceCard = ({ invoice, customerName }) => {
     const remaining = (invoice.total || 0) + (invoice.previousBalance || 0) - (invoice.payment || 0);
     const isPaid = remaining <= 0;
@@ -288,7 +371,6 @@ const InvoicesScreen = ({ navigation }) => {
 
     return (
       <View style={[styles.invoiceCard, { borderLeftColor: statusColor }]}>
-        {/* معلومات الفاتورة الأساسية */}
         <View style={styles.invoiceHeader}>
           <View style={styles.invoiceMainInfo}>
             <View style={styles.invoiceIdBadge}>
@@ -308,7 +390,6 @@ const InvoicesScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* تفاصيل المبالغ */}
         <View style={styles.invoiceDetails}>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>المجموع:</Text>
@@ -328,7 +409,6 @@ const InvoicesScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* عدد المنتجات */}
         <View style={styles.itemsCountContainer}>
           <Icon name="package-variant" size={16} color={COLORS.primary} />
           <Text style={styles.itemsCountText}>
@@ -336,7 +416,6 @@ const InvoicesScreen = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* أزرار الإجراءات */}
         <View style={styles.invoiceActions}>
           <TouchableOpacity
             style={[styles.actionButton, styles.printButton]}
@@ -374,7 +453,6 @@ const InvoicesScreen = ({ navigation }) => {
     );
   };
 
-  // عرض مجموعة الزبون
   const CustomerGroup = ({ customerName, invoices }) => {
     const isExpanded = expandedCustomers.has(customerName);
     const latestInvoice = invoices[0];
@@ -389,7 +467,6 @@ const InvoicesScreen = ({ navigation }) => {
 
     return (
       <View style={styles.customerGroup}>
-        {/* هيدر المجموعة */}
         <TouchableOpacity
           style={[styles.customerHeader, { borderColor: statusColor }]}
           onPress={() => toggleCustomerExpansion(customerName)}
@@ -431,7 +508,6 @@ const InvoicesScreen = ({ navigation }) => {
             </View>
           </View>
           
-          {/* أزرار إجراءات الزبون */}
           <View style={styles.customerActions}>
             <TouchableOpacity
               style={[styles.customerActionButton, { backgroundColor: COLORS.success }]}
@@ -457,7 +533,6 @@ const InvoicesScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        {/* قائمة الفواتير */}
         {isExpanded && (
           <View style={styles.invoicesList}>
             {invoices.map((invoice) => (
@@ -484,7 +559,6 @@ const InvoicesScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* الهيدر */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>قائمة الفواتير</Text>
         <View style={styles.counterBadge}>
@@ -496,7 +570,6 @@ const InvoicesScreen = ({ navigation }) => {
         style={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* الإحصائيات */}
         <View style={styles.statsContainer}>
           <View style={styles.statsGrid}>
             <StatCard
@@ -544,7 +617,6 @@ const InvoicesScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* أزرار الفلترة */}
         <View style={styles.filtersContainer}>
           <TouchableOpacity
             style={[
@@ -607,7 +679,6 @@ const InvoicesScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* شريط البحث */}
         <View style={styles.searchContainer}>
           <Icon name="magnify" size={22} color={COLORS.textLight} />
           <TextInput
@@ -624,22 +695,35 @@ const InvoicesScreen = ({ navigation }) => {
           )}
         </View>
         
-        {/* أزرار الإجراءات العامة */}
-        {invoices.length > 0 && (
-          <View style={styles.generalActions}>
-            <TouchableOpacity
-              style={[styles.generalActionButton, { backgroundColor: COLORS.primary }]}
-              onPress={handleExportAllInvoices}
-            >
-              <Icon name="download" size={20} color="#fff" />
-              <Text style={styles.generalActionText}>
-                تصدير الكل ({toEnglishNumbers(invoices.length)})
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        {/* أزرار الإجراءات الجديدة */}
+        <View style={styles.actionsSection}>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.exportBtn]}
+            onPress={handleExportInvoices}
+            disabled={invoices.length === 0}
+          >
+            <Icon name="download" size={20} color="#fff" />
+            <Text style={styles.actionBtnText}>تصدير</Text>
+          </TouchableOpacity>
 
-        {/* قائمة الفواتير المجمعة */}
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.importBtn]}
+            onPress={handleImportInvoices}
+          >
+            <Icon name="upload" size={20} color="#fff" />
+            <Text style={styles.actionBtnText}>استيراد</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.deleteAllBtn]}
+            onPress={() => setShowDeleteAllModal(true)}
+            disabled={invoices.length === 0}
+          >
+            <Icon name="delete-sweep" size={20} color="#fff" />
+            <Text style={styles.actionBtnText}>مسح الكل</Text>
+          </TouchableOpacity>
+        </View>
+
         {customerNames.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Icon name="receipt-text-off" size={64} color={COLORS.textLight} />
@@ -662,9 +746,50 @@ const InvoicesScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* مساحة إضافية للتمرير */}
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* مودال تأكيد الحذف الشامل */}
+      <Modal
+        visible={showDeleteAllModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteAllModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDeleteAllModal(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.warningIconContainer}>
+              <Icon name="alert" size={48} color={COLORS.danger} />
+            </View>
+
+            <Text style={styles.modalTitle}>تحذير!</Text>
+            <Text style={styles.modalMessage}>
+              هل أنت متأكد من حذف جميع الفواتير؟{'\n'}
+              سيتم حذف {toEnglishNumbers(stats.total)} فاتورة نهائياً.
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowDeleteAllModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>إلغاء</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmDeleteButton]}
+                onPress={handleDeleteAllInvoices}
+              >
+                <Text style={styles.confirmDeleteButtonText}>حذف الكل</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -807,6 +932,35 @@ const styles = StyleSheet.create({
     fontSize: isTablet ? 16 : 14,
     color: COLORS.textDark,
     padding: isTablet ? 12 : 10,
+  },
+  actionsSection: {
+    flexDirection: 'row',
+    gap: isTablet ? 12 : 10,
+    marginBottom: isTablet ? 20 : 16,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: isTablet ? 14 : 12,
+    borderRadius: 12,
+    elevation: 3,
+  },
+  exportBtn: {
+    backgroundColor: COLORS.success,
+  },
+  importBtn: {
+    backgroundColor: COLORS.info,
+  },
+  deleteAllBtn: {
+    backgroundColor: COLORS.danger,
+  },
+  actionBtnText: {
+    fontSize: isTablet ? 14 : 13,
+    fontWeight: '700',
+    color: '#fff',
   },
   groupsContainer: {
     gap: isTablet ? 16 : 12,
@@ -1048,6 +1202,72 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     textAlign: 'center',
     lineHeight: isTablet ? 24 : 22,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: isTablet ? 28 : 24,
+    width: '100%',
+    maxWidth: isTablet ? 500 : 400,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  warningIconContainer: {
+    alignItems: 'center',
+    marginBottom: isTablet ? 20 : 16,
+  },
+  modalTitle: {
+    fontSize: isTablet ? 22 : 20,
+    fontWeight: '800',
+    color: COLORS.textDark,
+    textAlign: 'center',
+    marginBottom: isTablet ? 16 : 12,
+  },
+  modalMessage: {
+    fontSize: isTablet ? 16 : 15,
+    color: COLORS.textMedium,
+    textAlign: 'center',
+    lineHeight: isTablet ? 26 : 24,
+    marginBottom: isTablet ? 28 : 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    padding: isTablet ? 16 : 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: COLORS.backgroundLight,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+  },
+  cancelButtonText: {
+    fontSize: isTablet ? 16 : 15,
+    fontWeight: '700',
+    color: COLORS.textDark,
+  },
+  confirmDeleteButton: {
+    backgroundColor: COLORS.danger,
+  },
+  confirmDeleteButtonText: {
+    fontSize: isTablet ? 16 : 15,
+    fontWeight: '700',
+    color: '#fff',
   },
 });
 

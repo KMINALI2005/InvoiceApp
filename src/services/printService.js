@@ -303,7 +303,7 @@ export const printInvoice = async (invoice) => {
               <div class="logo-badge">JN</div>
               <div class="store-info">
                 <h1>محلات ابو جعفر الرديني</h1>
-                <div class="store-subtitle">للمواد الغذائية والتموينية</div>
+                <div class="store-subtitle">للمواد الغذائية والحلويات</div>
               </div>
             </div>
             <div class="invoice-id-badge">

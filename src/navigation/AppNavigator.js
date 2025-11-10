@@ -10,10 +10,14 @@ import InvoicesScreen from '../screens/InvoicesScreen';
 import ProductsScreen from '../screens/ProductsScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import AuditingScreen from '../screens/AuditingScreen';
+import EditInvoiceScreen from '../screens/EditInvoiceScreen';
 
 const Stack = createNativeStackNavigator();
 
-const TabBar = ({ navigation, currentScreen }) => {
+const AppNavigator = () => {
+  const [navigationRef, setNavigationRef] = useState(null);
+  const [currentScreen, setCurrentScreen] = useState('CreateInvoice');
+
   const tabs = [
     { name: 'CreateInvoice', icon: 'plus-circle', label: 'إنشاء' },
     { name: 'Invoices', icon: 'receipt', label: 'الفواتير' },
@@ -23,61 +27,60 @@ const TabBar = ({ navigation, currentScreen }) => {
   ];
 
   return (
-    <View style={styles.tabBar}>
-      {tabs.map((tab) => (
-        <TouchableOpacity
-          key={tab.name}
-          style={[
-            styles.tab,
-            currentScreen === tab.name && styles.activeTab
-          ]}
-          onPress={() => navigation.navigate(tab.name)}
-        >
-          <Icon 
-            name={tab.icon} 
-            size={24} 
-            color={currentScreen === tab.name ? '#fff' : '#0d9488'} 
-          />
-          <Text style={[
-            styles.tabLabel,
-            currentScreen === tab.name && styles.activeTabLabel
-          ]}>
-            {tab.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-};
-
-const AppNavigator = () => {
-  const [currentScreen, setCurrentScreen] = useState('CreateInvoice');
-
-  return (
-    <>
+    <View style={{ flex: 1 }}>
       <NavigationContainer
+        ref={(ref) => setNavigationRef(ref)}
         onStateChange={(state) => {
           const route = state?.routes[state.index];
           if (route) setCurrentScreen(route.name);
         }}
       >
         <Stack.Navigator
-          screenOptions={{
+          screenOptions={({ route }) => ({
             headerShown: false,
-          }}
+            animation: route.name === 'EditInvoice' ? 'slide_from_right' : 'default',
+            presentation: route.name === 'EditInvoice' ? 'card' : 'default',
+          })}
         >
           <Stack.Screen name="CreateInvoice" component={CreateInvoiceScreen} />
           <Stack.Screen name="Invoices" component={InvoicesScreen} />
           <Stack.Screen name="Products" component={ProductsScreen} />
           <Stack.Screen name="Reports" component={ReportsScreen} />
           <Stack.Screen name="Auditing" component={AuditingScreen} />
+          <Stack.Screen name="EditInvoice" component={EditInvoiceScreen} />
         </Stack.Navigator>
       </NavigationContainer>
-      <TabBar 
-        navigation={null} 
-        currentScreen={currentScreen}
-      />
-    </>
+
+      {/* شريط التنقل السفلي */}
+      <View style={styles.tabBar}>
+        {tabs.map((tab) => (
+          <TouchableOpacity
+            key={tab.name}
+            style={[
+              styles.tab,
+              currentScreen === tab.name && styles.activeTab
+            ]}
+            onPress={() => {
+              if (navigationRef) {
+                navigationRef.navigate(tab.name);
+              }
+            }}
+          >
+            <Icon 
+              name={tab.icon} 
+              size={24} 
+              color={currentScreen === tab.name ? '#fff' : '#0d9488'} 
+            />
+            <Text style={[
+              styles.tabLabel,
+              currentScreen === tab.name && styles.activeTabLabel
+            ]}>
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
   );
 };
 

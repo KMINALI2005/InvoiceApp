@@ -175,33 +175,243 @@ export const exportProductsJSON = async (products) => {
   }
 };
 
-// استيراد بيانات من ملف JSON
+// ** تعديل رقم 2: استبدال دالة normalizeInvoice بالكامل **
+const normalizeInvoice = (invoice) => {
+  // دالة لإصلاح النصوص العربية
+  const fixText = (text) => {
+    if (!text || typeof text !== 'string') return text;
+    try {
+      // فك ترميز UTF-8 المكسور
+      return decodeURIComponent(escape(text));
+    } catch (e) {
+      return text;
+    }
+  };
+
+  return {
+    id: invoice.id || invoice.invoiceId || Date.now(),
+    customer: fixText(invoice.customer || invoice.customerName || 'غير محدد'),
+    date: invoice.date || invoice.invoiceDate || getCurrentDate(),
+    items: Array.isArray(invoice.items) ? invoice.items.map(item => ({
+      product: fixText(item.product || item.productName || item.name || 'منتج'),
+      quantity: parseFloat(item.quantity || item.qty || 0),
+      price: parseFloat(item.price || item.unitPrice || 0),
+      total: parseFloat(item.total || item.amount || 0),
+      notes: fixText(item.notes || item.note || ''),
+    })) : [],
+    total: parseFloat(invoice.total || invoice.totalAmount || invoice.invoiceTotal || 0),
+    previousBalance: parseFloat(invoice.previousBalance || invoice.prevBalance || invoice.oldBalance || 0),
+    payment: parseFloat(invoice.payment || invoice.paidAmount || invoice.paid || 0),
+    createdAt: invoice.createdAt || new Date().toISOString(),
+  };
+};
+
+// ** تعديل رقم 3: استبدال دالة normalizeProduct بالكامل **
+const normalizeProduct = (product) => {
+  const fixText = (text) => {
+    if (!text || typeof text !== 'string') return text;
+    try {
+      return decodeURIComponent(escape(text));
+    } catch (e) {
+      return text;
+    }
+  };
+
+  return {
+    id: product.id || product.productId || Date.now(),
+    name: fixText(product.name || product.productName || 'منتج'),
+    price: parseFloat(product.price || product.unitPrice || product.cost || 0),
+    createdAt: product.createdAt || new Date().toISOString(),
+  };
+};
+
+// استيراد بيانات من ملف JSON مع دعم الصيغ القديمة
 export const importFromJSON = async (filePath) => {
   try {
     const fileContent = await RNFS.readFile(filePath, 'utf8');
-    const data = JSON.parse(fileContent);
-    
-    // التحقق من صحة البيانات
+
+    // ** تعديل رقم 1: إضافة دالة لإصلاح الترميز **
+    // دالة لإصلاح الترميز العربي الخاطئ
+    const fixArabicEncoding = (text) => {
+      try {
+        // محاولة إصلاح UTF-8 المكسور
+        const bytes = new Uint8Array(text.split('').map(c => c.charCodeAt(0)));
+        const decoder = new TextDecoder('utf-8');
+        return decoder.decode(bytes);
+      } catch (e) {
+        return text;
+      }
+    };
+
+    let data;
+
+    try {
+      // محاولة قراءة JSON العادي أولاً
+      data = JSON.parse(fileContent);
+    } catch (parseError) {
+      // إذا فشل، جرب إصلاح الترميز
+      try {
+        const fixedContent = fixArabicEncoding(fileContent);
+        data = JSON.parse(fixedContent);
+      } catch (e) {
+        throw new Error('الملف ليس بصيغة JSON صحيحة');
+      }
+    }
+    // ** نهاية تعديل رقم 1 **
+
+    // دعم الصيغة الجديدة (React Native)
     if (data.invoices && Array.isArray(data.invoices)) {
+      const normalizedInvoices = data.invoices.map(normalizeInvoice);
       return {
         success: true,
         type: 'invoices',
-        data: data.invoices,
-        count: data.invoices.length,
+        data: normalizedInvoices,
+        count: normalizedInvoices.length,
       };
-    } else if (data.products && Array.isArray(data.products)) {
+    } 
+    
+    if (data.products && Array.isArray(data.products)) {
+      const normalizedProducts = data.products.map(normalizeProduct);
       return {
         success: true,
         type: 'products',
-        data: data.products,
-        count: data.products.length,
+        data: normalizedProducts,
+        count: normalizedProducts.length,
       };
-    } else {
-      throw new Error('صيغة الملف غير صحيحة');
     }
+
+    // دعم الصيغة القديمة من تطبيق الويب/كوردوفا
+    // الحالة 1: مصفوفة مباشرة من الفواتير
+    if (Array.isArray(data)) {
+      // التحقق من نوع البيانات
+      if (data.length > 0) {
+        const firstItem = data[0];
+        
+        // إذا كان العنصر يحتوي على customer أو items فهو فاتورة
+        if (firstItem.customer || firstItem.customerName || firstItem.items) {
+          const normalizedInvoices = data.map(normalizeInvoice);
+          return {
+            success: true,
+            type: 'invoices',
+            data: normalizedInvoices,
+            count: normalizedInvoices.length,
+          };
+        }
+        
+        // إذا كان العنصر يحتوي على name و price فقط فهو منتج
+        if ((firstItem.name || firstItem.productName) && (firstItem.price || firstItem.unitPrice)) {
+          const normalizedProducts = data.map(normalizeProduct);
+          return {
+            success: true,
+            type: 'products',
+            data: normalizedProducts,
+            count: normalizedProducts.length,
+          };
+        }
+      }
+    }
+
+    // الحالة 2: كائن يحتوي على data أو invoicesList أو productsList
+    if (data.data && Array.isArray(data.data)) {
+      if (data.data.length > 0) {
+        const firstItem = data.data[0];
+        
+        if (firstItem.customer || firstItem.customerName || firstItem.items) {
+          const normalizedInvoices = data.data.map(normalizeInvoice);
+          return {
+            success: true,
+            type: 'invoices',
+            data: normalizedInvoices,
+            count: normalizedInvoices.length,
+          };
+        }
+        
+        if ((firstItem.name || firstItem.productName) && (firstItem.price || firstItem.unitPrice)) {
+          const normalizedProducts = data.data.map(normalizeProduct);
+          return {
+            success: true,
+            type: 'products',
+            data: normalizedProducts,
+            count: normalizedProducts.length,
+          };
+        }
+      }
+    }
+
+    // الحالة 3: كائن يحتوي على invoicesList أو productsList
+    if (data.invoicesList && Array.isArray(data.invoicesList)) {
+      const normalizedInvoices = data.invoicesList.map(normalizeInvoice);
+      return {
+        success: true,
+        type: 'invoices',
+        data: normalizedInvoices,
+        count: normalizedInvoices.length,
+      };
+    }
+
+    if (data.productsList && Array.isArray(data.productsList)) {
+      const normalizedProducts = data.productsList.map(normalizeProduct);
+      return {
+        success: true,
+        type: 'products',
+        data: normalizedProducts,
+        count: normalizedProducts.length,
+      };
+    }
+
+    // الحالة 4: كائن localStorage من التطبيقات القديمة
+    if (data.localStorage) {
+      // محاولة قراءة الفواتير من localStorage
+      if (data.localStorage.invoices) {
+        try {
+          const invoicesData = typeof data.localStorage.invoices === 'string' 
+            ? JSON.parse(data.localStorage.invoices) 
+            : data.localStorage.invoices;
+          
+          if (Array.isArray(invoicesData)) {
+            const normalizedInvoices = invoicesData.map(normalizeInvoice);
+            return {
+              success: true,
+              type: 'invoices',
+              data: normalizedInvoices,
+              count: normalizedInvoices.length,
+            };
+          }
+        } catch (e) {
+          console.error('Error parsing localStorage invoices:', e);
+        }
+      }
+
+      // محاولة قراءة المنتجات من localStorage
+      if (data.localStorage.products) {
+        try {
+          const productsData = typeof data.localStorage.products === 'string' 
+            ? JSON.parse(data.localStorage.products) 
+            : data.localStorage.products;
+          
+          if (Array.isArray(productsData)) {
+            const normalizedProducts = productsData.map(normalizeProduct);
+            return {
+              success: true,
+              type: 'products',
+              data: normalizedProducts,
+              count: normalizedProducts.length,
+            };
+          }
+        } catch (e) {
+          console.error('Error parsing localStorage products:', e);
+        }
+      }
+    }
+
+    throw new Error('صيغة الملف غير مدعومة أو لا يحتوي على بيانات صحيحة');
+    
   } catch (error) {
     console.error('Import JSON Error:', error);
-    return { success: false, error: error.message };
+    return { 
+      success: false, 
+      error: error.message || 'فشل استيراد الملف' 
+    };
   }
 };
 
