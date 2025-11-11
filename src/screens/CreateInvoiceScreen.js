@@ -392,8 +392,8 @@ const CreateInvoiceScreen = ({ navigation }) => {
         visibilityTime: 2000,
       });
 
-      // تنظيف النموذج
-      clearInvoiceForm();
+      // تنظيف النموذج ومسح المسودة
+      await clearInvoiceForm();
     } catch (error) {
       Toast.show({
         type: 'error',
