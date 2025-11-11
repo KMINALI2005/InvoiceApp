@@ -20,7 +20,7 @@ import { COLORS, GRADIENTS } from '../utils/colors';
 import Toast from 'react-native-toast-message';
 
 const CreateInvoiceScreen = ({ navigation }) => {
-  const { draftInvoice, saveDraft, clearDraft } = useInvoiceDraft();
+  const { draftInvoice, saveDraft, clearDraft, hasDraft, isLoading } = useInvoiceDraft();
   
   // البيانات الأساسية
   const { products, invoices, saveInvoice, saveProduct } = useDatabase();

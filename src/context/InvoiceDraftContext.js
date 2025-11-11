@@ -18,6 +18,7 @@ export const InvoiceDraftProvider = ({ children }) => {
     previousBalance: '',
     paymentAmount: '',
   });
+  const [isLoading, setIsLoading] = useState(false);
 
   const saveDraft = useCallback((draft) => {
     setDraftInvoice(draft);
@@ -37,10 +38,14 @@ export const InvoiceDraftProvider = ({ children }) => {
     });
   }, []);
 
+  const hasDraft = draftInvoice.customerName !== '' || draftInvoice.invoiceItems.length > 0;
+
   const value = {
     draftInvoice,
     saveDraft,
     clearDraft,
+    hasDraft,
+    isLoading,
   };
 
   return (
