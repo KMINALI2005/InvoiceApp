@@ -1,449 +1,526 @@
-// src/services/printService.js
 import RNPrint from 'react-native-print';
+import Share from 'react-native-share';
+import { Alert, Platform } from 'react-native'; // Added Platform for potential future use
 import { formatCurrency, toEnglishNumbers, getCurrentDate, getCurrentTime } from '../utils/formatters';
 
 /**
- * دالة طباعة الفاتورة مع جميع التحسينات المطبقة:
- * 1. تقليل مسافات الجدول لزيادة عدد الأسطر.
- * 2. تحويل ملخص الحسابات إلى أفقي (flex-box) بدلاً من جدول.
- * 3. تقريب المسافات بين العناوين والقيم في الملخص.
- * 4. منع انقسام قسم الملخص بين الصفحات (page-break-inside: avoid).
+ * دالة مساعدة لتوليد كود HTML للفاتورة.
  */
-export const printInvoice = async (invoice) => {
-  try {
-    const remaining = (invoice.total || 0) + (invoice.previousBalance || 0) - (invoice.payment || 0);
-    const totalWithPrevious = (invoice.total || 0) + (invoice.previousBalance || 0);
-    
-    const currentTime = getCurrentTime();
-    const invoiceDate = toEnglishNumbers(invoice.date);
+const _generateInvoiceHtml = (invoice) => {
+  const remaining = (invoice.total || 0) + (invoice.previousBalance || 0) - (invoice.payment || 0);
+  const totalWithPrevious = (invoice.total || 0) + (invoice.previousBalance || 0);
+  
+  const currentTime = getCurrentTime();
+  const invoiceDate = toEnglishNumbers(invoice.date);
 
-    // بناء HTML للطباعة - تصميم أبيض وأسود احترافي ومحسن
-    const html = `
-      <!DOCTYPE html>
-      <html lang="ar" dir="rtl">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>فاتورة - ${invoice.customer}</title>
-        <style>
-          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
-          
-          @page {
-            size: A4;
-            margin: 3mm 7mm;
-          }
-          
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          
-          /* --- التعديل 1: تقليل ارتفاع السطر --- */
-          body {
-            font-family: 'Cairo', 'Tajawal', 'Arial', sans-serif;
-            direction: rtl;
-            font-size: 11.5pt;
-            line-height: 1.25; /* تم التعديل من 1.35 */
-            color: #000;
-            background: white;
-          }
-          
-          .header {
-            background: #fff;
-            border: 2px solid #000;
-            border-radius: 12px;
-            padding: 10px 15px;
-            margin-bottom: 10px;
-            position: relative;
-          }
-          
-          .header-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #ccc;
-            margin-bottom: 10px;
-          }
-          
-          .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-          }
-          
-          /* --- تعديل: تنسيق B&W كما في النسخة المحسنة --- */
-          .logo-badge {
-            width: 55px;
-            height: 55px;
-            background: #fff !important;
-            border: 3px solid #000;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22pt;
-            font-weight: 800;
-            color: #000 !important;
-            letter-spacing: 2px;
-          }
-          
-          .store-info h1 {
-            font-size: 22pt;
-            font-weight: 800;
-            color: #000 !important;
-            margin-bottom: 2px;
-          }
-          
-          .store-subtitle {
-            font-size: 9pt;
-            color: #333 !important;
-            font-weight: 600;
-          }
-          
-          .invoice-id-badge {
-            background: #eee;
-            border: 2px solid #000;
-            border-radius: 8px;
-            padding: 4px 8px;
-            font-weight: 600;
-            font-size: 10pt;
-            text-align: center;
-            color: #000;
-          }
-          
-          .contact-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 5px;
-            margin-bottom: 8px;
-          }
-          
-          .contact-item {
-            padding: 6px 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: #fff;
-            border-radius: 8px;
-            border: 2px solid #000;
-          }
-          
-          /* --- تعديل: تنسيق B&W كما في النسخة المحسنة --- */
-          .contact-icon {
-            background: #fff !important;
-            color: #000 !important;
-            width: 28px;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 11pt;
-            flex-shrink: 0;
-            border-radius: 8px;
-          }
-          
-          .contact-name {
-            font-weight: 700;
-            font-size: 10pt;
-            margin-bottom: 0;
-            color: #000;
-          }
-          
-          .contact-number {
-            font-weight: 600;
-            font-size: 10pt;
-            direction: ltr;
-            text-align: right;
-            color: #000;
-          }
-          
-          .address-section {
-            padding: 8px 12px;
-            text-align: center;
-            background: #fff;
-            border-radius: 8px;
-            border: 2px solid #000;
-          }
-          
-          .address-label {
-            font-size: 9pt;
-            font-weight: 700;
-            margin-bottom: 2px;
-            color: #000;
-          }
-          
-          .address-text {
-            font-size: 11pt;
-            font-weight: 600;
-            color: #000;
-          }
-          
-          .invoice-info {
-            display: grid;
-            grid-template-columns: 2fr 1fr 1fr;
-            gap: 8px;
-            padding: 6px 8px;
-            font-size: 11pt;
-            border: 1.5px solid #000;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            align-items: center;
-            background: #f8f9fa;
-          }
-          
-          .info-item .label {
-            font-weight: 700;
-            color: #000;
-          }
-          
-          .info-item .value {
-            font-weight: 600;
-            color: #000;
-          }
-          
-          /* --- التعديل 1: تقليل مسافات الجدول --- */
-          .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 9pt; /* تم التعديل من 9.5pt */
-            border-radius: 8px;
-            overflow: hidden;
-          }
-          
-          .items-table th,
-          .items-table td {
-            border: 1.5px solid #000;
-            padding: 3px; /* تم التعديل من 4px */
-            text-align: center;
-            font-weight: 600;
-          }
-          
-          .items-table th {
-            font-weight: 700;
-            padding: 4px; /* تم التعديل من 5px */
-            color: #000;
-            background: #fff;
-            border: 2px solid #000;
-            border-bottom-width: 2px;
-          }
-          
-          .items-table .item-name {
-            text-align: right;
-            padding-right: 8px;
-            font-weight: 600;
-            font-size: 10.5pt; /* تم التعديل من 11pt */
-            color: #000;
-          }
-          
-          .items-table tbody tr:nth-child(even) {
-            background: #f8f9fa;
-          }
-          
-          .items-table tbody tr:hover {
-            background: #f0f0f0;
-          }
-          
-          /* --- التعديل 2، 3، 4: حذف أنماط الجدول العمودي القديم --- */
-          /* .summary-table { ... } (تم الحذف) */
-          /* .summary-table td { ... } (تم الحذف) */
-          /* ... (باقي أنماط summary-table المحذوفة) ... */
-
-          /* --- التعديل 2، 3، 4: إضافة أنماط الملخص الأفقي الجديد --- */
-          .summary-section {
-            padding-top: 8px;
-            margin-top: 8px;
-            border-top: 3px solid #000;
-            page-break-inside: avoid; /* الطلب 4: منع انقسام الملخص */
-          }
-          
-          .summary-grid {
-            display: flex;
-            justify-content: space-between;
-            align-items: stretch;
-            gap: 6px;
-            flex-wrap: wrap;
-          }
-          
-          /* الطلب 2 و 3: أفقي + مسافات قريبة */
-          .summary-item {
-            flex: 1 1 150px;
-            border: 2px solid #000;
-            border-radius: 8px;
-            padding: 5px 10px;
-            background: #fff;
-            display: flex;
-            flex-direction: row !important; /* إجبار الوضع الأفقي */
-            justify-content: flex-start; /* تقريب المسافة */
-            align-items: center;
-            min-height: 40px;
-          }
-          
-          .summary-item .label {
-            font-weight: 700;
-            font-size: 10.5pt;
-            color: #000;
-            margin-bottom: 0;
-            margin-left: 8px; /* إضافة مسافة فاصلة قريبة */
-          }
-          
-          .summary-item .value {
-            font-weight: 700;
-            font-size: 11.5pt;
-            color: #000;
-            line-height: 1.2;
-            white-space: nowrap;
-          }
-          
-          .summary-item.total-due-item {
-            background: #eee !important;
-          }
-          
-          .total-due-item .value {
-            font-weight: 800;
-            font-size: 12.5pt;
-          }
-          
-          .summary-item.final-item {
-            background: #fff !important;
-            border-width: 3px;
-          }
-          
-          .final-item .label {
-            font-weight: 800;
-            font-size: 11pt;
-          }
-          
-          .final-item .value {
-            font-weight: 800;
-            font-size: 13.5pt;
-            color: #000 !important;
-          }
-          
-          @media print {
-            body {
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <header class="header">
-          <div class="header-top">
-            <div class="logo-section">
-              <div class="logo-badge">JN</div>
-              <div class="store-info">
-                <h1>محلات ابو جعفر الرديني</h1>
-                <div class="store-subtitle">للمواد الغذائية والحلويات</div>
-              </div>
-            </div>
-            <div class="invoice-id-badge">
-              رقم الفاتورة: ${toEnglishNumbers(invoice.id)}
-            </div>
-          </div>
-          
-          <div class="contact-grid">
-            <div class="contact-item">
-              <div class="contact-icon"></div>
-              <div>
-                <div class="contact-name">جعفر</div>
-                <div class="contact-number">07731103122 | 07800379300</div>
-              </div>
-            </div>
-            <div class="contact-item">
-              <div class="contact-icon"></div>
-              <div>
-                <div class="contact-name">حسين</div>
-                <div class="contact-number">07826342265</div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="address-section">
-            <div class="address-label">📍 العنوان</div>
-            <div class="address-text">بلدروز - مقابل مطعم - بغداد - داخل القيصرية</div>
-          </div>
-        </header>
+  return `
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>فاتورة - ${invoice.customer}</title>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
         
-        <section class="invoice-info">
-          <div class="info-item">
-            <span class="label">الزبون:</span>
-            <span class="value">${invoice.customer}</span>
+        @page {
+          size: A4;
+          margin: 3mm 7mm;
+        }
+        
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        body {
+          font-family: 'Cairo', 'Tajawal', 'Arial', sans-serif;
+          direction: rtl;
+          font-size: 11pt;
+          line-height: 1.2;
+          color: #000;
+          background: white;
+        }
+        
+        /* تصميم الرأس العصري */
+        .header {
+          border: 2.5px solid #000;
+          border-radius: 10px;
+          padding: 8px 12px;
+          margin-bottom: 8px;
+          background: #fff;
+        }
+        
+        .header-main {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-bottom: 8px;
+          border-bottom: 2px solid #000;
+          margin-bottom: 8px;
+        }
+        
+        .brand-section {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        
+        .logo-modern {
+          width: 50px;
+          height: 50px;
+          background: #fff;
+          color: #000;
+          border: 2.5px solid #000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20pt;
+          font-weight: 800;
+          letter-spacing: 1px;
+          flex-shrink: 0;
+        }
+        
+        .company-name {
+          flex: 1;
+        }
+        
+        .company-name h1 {
+          font-size: 20pt;
+          font-weight: 800;
+          color: #000;
+          margin-bottom: 2px;
+          line-height: 1.1;
+        }
+        
+        .company-subtitle {
+          font-size: 9pt;
+          color: #333;
+          font-weight: 600;
+        }
+        
+        .invoice-badge {
+          background: #fff;
+          color: #000;
+          border: 2px solid #000;
+          padding: 6px 12px;
+          font-weight: 700;
+          font-size: 11pt;
+          text-align: center;
+          white-space: nowrap;
+        }
+        
+        /* تصميم الاتصال العصري - أفقي */
+        .contacts-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 6px;
+        }
+        
+        .contact-card {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 5px 10px;
+          background: #f8f8f8;
+          border: 1.5px solid #000;
+          border-radius: 8px;
+        }
+        
+        .contact-icon {
+          width: 26px;
+          height: 26px;
+          background: #fff;
+          color: #000;
+          border: 1.5px solid #000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 10pt;
+          flex-shrink: 0;
+        }
+        
+        .contact-info {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        
+        .contact-label {
+          font-weight: 700;
+          font-size: 10pt;
+          color: #000;
+        }
+        
+        .contact-number {
+          font-weight: 600;
+          font-size: 9.5pt;
+          direction: ltr;
+          color: #000;
+        }
+        
+        .address-bar {
+          padding: 5px 10px;
+          text-align: center;
+          background: #f8f8f8;
+          border: 1.5px solid #000;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+        
+        .address-icon {
+          font-weight: 700;
+          font-size: 11pt;
+        }
+        
+        .address-text {
+          font-size: 10pt;
+          font-weight: 600;
+          color: #000;
+        }
+        
+        /* معلومات الفاتورة */
+        .invoice-info {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr;
+          gap: 6px;
+          padding: 5px 8px;
+          font-size: 10.5pt;
+          border: 1.5px solid #000;
+          border-radius: 8px;
+          margin-bottom: 6px;
+          align-items: center;
+          background: #f8f8f8;
+        }
+        
+        .info-item .label {
+          font-weight: 700;
+          color: #000;
+        }
+        
+        .info-item .value {
+          font-weight: 600;
+          color: #000;
+        }
+        
+        /* جدول المنتجات المحسن */
+        .items-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 9pt;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        
+        .items-table th,
+        .items-table td {
+          border: 1.5px solid #000;
+          padding: 2.5px;
+          text-align: center;
+          font-weight: 600;
+        }
+        
+        .items-table th {
+          font-weight: 700;
+          padding: 4px;
+          color: #000;
+          background: #f0f0f0;
+          border: 2px solid #000;
+        }
+        
+        .items-table .item-name {
+          text-align: right;
+          padding-right: 8px;
+          font-weight: 600;
+          font-size: 9.5pt;
+          color: #000;
+        }
+        
+        .items-table tbody tr:nth-child(even) {
+          background: #f8f8f8;
+        }
+        
+        /* ملخص الحساب - مستطيلات أرفع */
+        .summary-section {
+          padding-top: 6px;
+          margin-top: 6px;
+          border-top: 2.5px solid #000;
+          page-break-inside: avoid;
+        }
+        
+        .summary-grid {
+          display: flex;
+          justify-content: space-between;
+          align-items: stretch;
+          gap: 5px;
+          flex-wrap: wrap;
+        }
+        
+        .summary-item {
+          flex: 1 1 140px;
+          border: 1.5px solid #000;
+          border-radius: 6px;
+          padding: 4px 8px;
+          background: #fff;
+          display: flex;
+          flex-direction: row;
+          justify-content: flex-start;
+          align-items: center;
+          min-height: 32px;
+        }
+        
+        .summary-item .label {
+          font-weight: 700;
+          font-size: 10pt;
+          color: #000;
+          margin-left: 6px;
+          white-space: nowrap;
+        }
+        
+        .summary-item .value {
+          font-weight: 700;
+          font-size: 11pt;
+          color: #000;
+          white-space: nowrap;
+        }
+        
+        .summary-item.total-due-item {
+          background: #f0f0f0;
+          border-width: 2px;
+        }
+        
+        .total-due-item .value {
+          font-weight: 800;
+          font-size: 12pt;
+        }
+        
+        .summary-item.final-item {
+          background: #fff;
+          border-width: 2.5px;
+        }
+        
+        .final-item .label {
+          font-weight: 800;
+          font-size: 10.5pt;
+          color: #000;
+        }
+        
+        .final-item .value {
+          font-weight: 800;
+          font-size: 13pt;
+          color: #000;
+        }
+        
+        @media print {
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <header class="header">
+        <div class="header-main">
+          <div class="brand-section">
+            <div class="logo-modern">JR</div>
+            <div class="company-name">
+              <h1>محلات ابو جعفر الرديني</h1>
+              <div class="company-subtitle">للمواد الغذائية والحلويات</div>
+            </div>
           </div>
-          <div class="info-item">
-            <span class="label">التاريخ:</span>
-            <span class="value">${invoiceDate}</span>
+          <div class="invoice-badge">
+            فاتورة رقم ${toEnglishNumbers(invoice.id)}
           </div>
-          <div class="info-item">
-            <span class="label">الوقت:</span>
-            <span class="value">${currentTime}</span>
+        </div>
+        
+        <div class="contacts-row">
+          <div class="contact-card">
+            <div class="contact-icon">📞</div>
+            <div class="contact-info">
+              <span class="contact-label">جعفر:</span>
+              <span class="contact-number">07731103122 | 07800379300</span>
+            </div>
+          </div>
+          <div class="contact-card">
+            <div class="contact-icon">📱</div>
+            <div class="contact-info">
+              <span class="contact-label">حسين:</span>
+              <span class="contact-number">07826342265</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="address-bar">
+          <span class="address-icon">📍</span>
+          <span class="address-text">بلدروز - مقابل مطعم - بغداد - داخل القيصرية</span>
+        </div>
+      </header>
+      
+      <section class="invoice-info">
+        <div class="info-item">
+          <span class="label">الزبون:</span>
+          <span class="value">${invoice.customer}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">التاريخ:</span>
+          <span class="value">${invoiceDate}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">الوقت:</span>
+          <span class="value">${currentTime}</span>
+        </div>
+      </section>
+      
+      <main>
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th style="width: 5%;">#</th>
+              <th style="width: 40%;">اسم المنتج</th>
+              <th style="width: 10%;">الكمية</th>
+              <th style="width: 15%;">السعر</th>
+              <th style="width: 15%;">المبلغ</th>
+              <th style="width: 15%;">الملاحظات</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${invoice.items.map((item, idx) => `
+              <tr>
+                <td>${toEnglishNumbers(idx + 1)}</td>
+                <td class="item-name">${item.product}</td>
+                <td>${toEnglishNumbers(item.quantity)}</td>
+                <td>${formatCurrency(item.price)}</td>
+                <td>${formatCurrency(item.total)}</td>
+                <td>${item.notes || '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        
+        <section class="summary-section">
+          <div class="summary-grid">
+            <div class="summary-item">
+              <span class="label">مجموع الفاتورة:</span>
+              <span class="value">${formatCurrency(invoice.total || 0)} د</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">الحساب السابق:</span>
+              <span class="value">${formatCurrency(invoice.previousBalance || 0)} د</span>
+            </div>
+            <div class="summary-item total-due-item">
+              <span class="label">المجموع الكلي:</span>
+              <span class="value">${formatCurrency(totalWithPrevious)} د</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">المبلغ الواصل:</span>
+              <span class="value">${formatCurrency(invoice.payment || 0)} د</span>
+            </div>
+            <div class="summary-item final-item">
+              <span class="label">المبلغ المتبقي:</span>
+              <span class="value">${formatCurrency(remaining)} د</span>
+            </div>
           </div>
         </section>
-        
-        <main>
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th style="width: 5%;">#</th>
-                <th style="width: 40%;">اسم المنتج</th>
-                <th style="width: 10%;">الكمية</th>
-                <th style="width: 15%;">السعر</th>
-                <th style="width: 15%;">المبلغ</th>
-                <th style="width: 15%;">الملاحظات</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${invoice.items.map((item, idx) => `
-                <tr>
-                  <td>${toEnglishNumbers(idx + 1)}</td>
-                  <td class="item-name">${item.product}</td>
-                  <td>${toEnglishNumbers(item.quantity)}</td>
-                  <td>${formatCurrency(item.price)}</td>
-                  <td>${formatCurrency(item.total)}</td>
-                  <td>${item.notes || '-'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          
-          <!-- --- التعديل 2 و 3: استبدال الجدول بالـ grid --- -->
-          <section class="summary-section">
-            <div class="summary-grid">
-              <div class="summary-item">
-                <span class="label">مجموع الفاتورة:</span>
-                <span class="value">${formatCurrency(invoice.total || 0)} دينار</span>
-              </div>
-              <div class="summary-item">
-                <span class="label">الحساب السابق:</span>
-                <span class="value">${formatCurrency(invoice.previousBalance || 0)} دينار</span>
-              </div>
-              <div class="summary-item total-due-item">
-                <span class="label">المجموع الكلي:</span>
-                <span class="value">${formatCurrency(totalWithPrevious)} دينار</span>
-              </div>
-              <div class="summary-item">
-                <span class="label">المبلغ الواصل:</span>
-                <span class="value">${formatCurrency(invoice.payment || 0)} دينار</span>
-              </div>
-              <div class="summary-item final-item">
-                <span class="label">المبلغ المتبقي:</span>
-                <span class="value">${formatCurrency(remaining)} دينار</span>
-              </div>
-            </div>
-          </section>
-        </main>
-      </body>
-      </html>
-    `;
+      </main>
+    </body>
+    </html>
+  `;
+};
 
-    // طباعة الفاتورة
-    await RNPrint.print({
-      html: html,
-      printerName: undefined,
-    });
+/**
+ * دالة طباعة الفاتورة الأصلية (تم تعديلها لاستخدام _generateInvoiceHtml)
+ */
+export const printInvoice = async (invoice) => {
+  const html = _generateInvoiceHtml(invoice);
+  try {
+    if (Platform.OS === 'android') {
+      // للأندرويد - استخدام PrintManager المدمج
+      const result = await RNPrint.print({
+        html: html,
+        printerName: undefined, // سيفتح نافذة اختيار الطابعة
+      });
+      return { success: !!result };
+    } else {
+      // للـ iOS
+      await RNPrint.print({ html: html });
+      return { success: true };
+    }
+  } catch (error) {
+    console.error('Print Error:', error);
+    Alert.alert('خطأ', 'فشلت عملية الطباعة');
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * طباعة محسّنة - تجربة أفضل للمستخدم
+ */
+export const printInvoiceEnhanced = async (invoice) => {
+  try {
+    const html = _generateInvoiceHtml(invoice);
+
+    // عرض خيارات للمستخدم
+    Alert.alert(
+      'طباعة الفاتورة',
+      'اختر الإجراء المطلوب',
+      [
+        {
+          text: 'طباعة مباشرة 🖨️',
+          onPress: async () => {
+            try {
+              await RNPrint.print({
+                html: html,
+              });
+            } catch (error) {
+              console.error('Print Error:', error);
+              Alert.alert('خطأ', 'فشلت عملية الطباعة');
+            }
+          },
+        },
+        {
+          text: 'حفظ كـ PDF 📄',
+          onPress: async () => {
+            try {
+              const filePath = await RNPrint.print({
+                html: html,
+                fileName: `فاتورة_${invoice.customer}_${invoice.id}`,
+                isLandscape: false,
+              });
+              
+              Alert.alert(
+                'تم الحفظ!',
+                'تم حفظ الفاتورة بصيغة PDF',
+                [
+                  {
+                    text: 'مشاركة',
+                    onPress: () => shareFile(filePath),
+                  },
+                  { text: 'حسناً' },
+                ]
+              );
+            } catch (error) {
+              console.error('Save PDF Error:', error);
+              Alert.alert('خطأ', 'فشل حفظ الملف');
+            }
+          },
+        },
+        {
+          text: 'إلغاء',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
 
     return { success: true };
   } catch (error) {
@@ -452,16 +529,27 @@ export const printInvoice = async (invoice) => {
   }
 };
 
-// 
-// --- دالة كشف الحساب (لم يتم تعديلها بناءً على طلبك) ---
-//
+/**
+ * مشاركة الملف
+ */
+const shareFile = async (filePath) => {
+  try {
+    await Share.open({
+      url: `file://${filePath}`,
+      type: 'application/pdf',
+      title: 'مشاركة الفاتورة',
+    });
+  } catch (error) {
+    console.error('Share Error:', error);
+  }
+};
+
 export const printCustomerStatement = async (customerName, invoices) => {
   try {
     if (!invoices || invoices.length === 0) {
       throw new Error('لا توجد فواتير لهذا الزبون');
     }
 
-    // ترتيب الفواتير حسب التاريخ
     const sortedInvoices = [...invoices].sort((a, b) => a.id - b.id);
     
     const latestInvoice = sortedInvoices[sortedInvoices.length - 1];
@@ -479,7 +567,7 @@ export const printCustomerStatement = async (customerName, invoices) => {
         <meta charset="UTF-8">
         <title>كشف حساب - ${customerName}</title>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
           
           @page {
             size: A4;
@@ -489,23 +577,35 @@ export const printCustomerStatement = async (customerName, invoices) => {
           body {
             font-family: 'Cairo', sans-serif;
             direction: rtl;
+            color: #000;
           }
           
-          h1, h2 {
+          .header {
             text-align: center;
-            color: #0d9488;
+            border-bottom: 3px solid #000;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
           }
           
           h1 {
-            font-size: 20pt;
+            font-size: 22pt;
+            font-weight: 800;
+            margin-bottom: 5px;
+            color: #000;
           }
           
           h2 {
             font-size: 16pt;
+            font-weight: 700;
             margin-bottom: 15px;
+            color: #000;
           }
           
-          p {
+          .info-box {
+            background: #f8f8f8;
+            border: 2px solid #000;
+            border-radius: 8px;
+            padding: 12px;
             text-align: center;
             font-size: 12pt;
             margin-bottom: 20px;
@@ -519,32 +619,40 @@ export const printCustomerStatement = async (customerName, invoices) => {
           }
           
           th, td {
-            border: 1px solid #ccc;
+            border: 1.5px solid #000;
             padding: 8px;
             text-align: center;
           }
           
           th {
-            background-color: #f0f4ff;
-            color: #0d9488;
-            font-weight: 700;
+            background-color: #f0f0f0;
+            color: #000;
+            ffont-weight: 700;
+            border: 2px solid #000;
+          }
+          
+          tbody tr:nth-child(even) {
+            background: #f8f8f8;
           }
           
           .final-summary {
             margin-top: 30px;
-            padding-top: 15px;
-            border-top: 2px solid #0d9488;
+            padding: 15px;
+            border: 3px solid #000;
+            border-radius: 8px;
             text-align: center;
-            font-size: 1.5rem;
-            font-weight: bold;
+            font-size: 18pt;
+            font-weight: 800;
+            background: #f0f0f0;
           }
           
           .final-summary .label {
-            color: #2c3e50;
+            color: #000;
           }
           
           .final-summary .value {
-            color: ${finalRemaining > 0 ? '#ef4444' : '#22c55e'};
+            color: ${finalRemaining > 0 ? '#000' : '#000'};
+            text-decoration: ${finalRemaining > 0 ? 'underline' : 'none'};
           }
           
           @media print {
@@ -556,12 +664,15 @@ export const printCustomerStatement = async (customerName, invoices) => {
         </style>
       </head>
       <body>
-        <h1>محلات ابو جعفر الرديني</h1>
-        <h2>كشف حساب زبون</h2>
-        <p>
-          <strong>الزبون:</strong> ${customerName}<br>
+        <div class="header">
+          <h1>محلات ابو جعفر الرديني</h1>
+          <h2>كشف حساب زبون</h2>
+        </div>
+        
+        <div class="info-box">
+          <strong>الزبون:</strong> ${customerName} | 
           <strong>تاريخ الكشف:</strong> ${currentDateStr} | ${currentTime}
-        </p>
+        </div>
         
         <table>
           <thead>
@@ -584,7 +695,7 @@ export const printCustomerStatement = async (customerName, invoices) => {
                   <td>${formatCurrency(inv.total || 0)}</td>
                   <td>${formatCurrency(inv.previousBalance || 0)}</td>
                   <td>${formatCurrency(inv.payment || 0)}</td>
-                  <td style="font-weight: bold; color: ${remaining > 0 ? '#ef4444' : remaining == 0 ? '#6b7280' : '#22c55e'};">
+                  <td style="font-weight: bold;">
                     ${formatCurrency(remaining)}
                   </td>
                 </tr>
@@ -601,14 +712,19 @@ export const printCustomerStatement = async (customerName, invoices) => {
       </html>
     `;
 
-    await RNPrint.print({
-      html: html,
-      printerName: undefined,
-    });
-
-    return { success: true };
+    if (Platform.OS === 'android') {
+      const result = await RNPrint.print({
+        html: html,
+        printerName: undefined,
+      });
+      return { success: !!result };
+    } else {
+      await RNPrint.print({ html: html });
+      return { success: true };
+    }
   } catch (error) {
     console.error('Print Customer Statement Error:', error);
+    Alert.alert('خطأ', 'فشلت عملية الطباعة');
     return { success: false, error: error.message };
   }
 };
@@ -616,4 +732,5 @@ export const printCustomerStatement = async (customerName, invoices) => {
 export default {
   printInvoice,
   printCustomerStatement,
+  printInvoiceEnhanced, // Export the new function
 };

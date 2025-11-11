@@ -18,7 +18,9 @@ import { useDatabase } from '../database/database';
 import { formatCurrency, toEnglishNumbers } from '../utils/formatters';
 import { COLORS } from '../utils/colors';
 import Toast from 'react-native-toast-message';
-import { printInvoice, printCustomerStatement } from '../services/printService';
+import { printInvoice, printCustomerStatement, _generateInvoiceHtml } from '../services/printService';
+import RNPrint from 'react-native-print';
+import { Platform } from 'react-native';
 import { shareInvoiceText, shareCustomerStatement, exportInvoicesJSON } from '../services/shareService';
 import { importFromJSON } from '../services/shareService';
 
@@ -266,25 +268,7 @@ const InvoicesScreen = ({ navigation }) => {
     }
   };
 
-  const handlePrintInvoice = async (invoice) => {
-    const result = await printInvoice(invoice);
-    
-    if (result.success) {
-      Toast.show({
-        type: 'success',
-        text1: 'تمت الطباعة',
-        text2: 'تم إرسال الفاتورة للطابعة',
-        position: 'top',
-      });
-    } else {
-      Toast.show({
-        type: 'error',
-        text1: 'فشلت الطباعة',
-        text2: result.error || 'حدث خطأ أثناء الطباعة',
-        position: 'top',
-      });
-    }
-  };
+
 
   const handleShareInvoice = async (invoice) => {
     const result = await shareInvoiceText(invoice);
@@ -419,7 +403,23 @@ const InvoicesScreen = ({ navigation }) => {
         <View style={styles.invoiceActions}>
           <TouchableOpacity
             style={[styles.actionButton, styles.printButton]}
-            onPress={() => handlePrintInvoice(invoice)}
+            onPress={async () => {
+              try {
+                const htmlContent = _generateInvoiceHtml(invoice);
+                await RNPrint.print({
+                  html: htmlContent,
+                });
+                
+                Toast.show({
+                  type: 'success',
+                  text1: 'جاهز للطباعة! 🖨️',
+                });
+              } catch (error) {
+                if (error.message !== 'User cancelled') {
+                  Alert.alert('خطأ', 'حدث خطأ في الطباعة');
+                }
+              }
+            }}
           >
             <Icon name="printer" size={18} color="#fff" />
             <Text style={styles.actionButtonText}>طباعة</Text>

@@ -11,7 +11,6 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useDatabase } from '../database/database';
@@ -49,57 +48,8 @@ const EditInvoiceScreen = ({ route, navigation }) => {
   const [editingItemIndex, setEditingItemIndex] = useState(null);
 
   const productNameInputRef = useRef(null);
-
-  // إضافة تأكيد عند الخروج إذا كانت هناك تعديلات
-  const [hasChanges, setHasChanges] = useState(false);
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-      if (!hasChanges) {
-        return;
-      }
-
-      e.preventDefault();
-
-      Alert.alert(
-        'تجاهل التغييرات؟',
-        'لديك تعديلات لم يتم حفظها. هل تريد تجاهلها؟',
-        [
-          { text: 'البقاء', style: 'cancel', onPress: () => {} },
-          {
-            text: 'تجاهل',
-            style: 'destructive',
-            onPress: () => navigation.dispatch(e.data.action),
-          },
-        ]
-      );
-    });
-
-    return unsubscribe;
-  }, [navigation, hasChanges]);
-
-  // مراقبة التغييرات
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    const originalData = JSON.stringify({
-      customer: invoice.customer,
-      date: invoice.date,
-      items: invoice.items,
-      previousBalance: invoice.previousBalance,
-      payment: invoice.payment,
-    });
-
-    const currentData = JSON.stringify({
-      customer: customerName,
-      date: invoiceDate,
-      items: invoiceItems,
-      previousBalance: parseFloat(previousBalance || 0),
-      payment: parseFloat(paymentAmount || 0),
-    });
-
-    setHasChanges(originalData !== currentData);
-  }, [customerName, invoiceDate, invoiceItems, previousBalance, paymentAmount]);
+  const quantityInputRef = useRef(null);
+  const priceInputRef = useRef(null);
 
   // الحسابات
   const lineTotal = parseFloat(quantity || 0) * parseFloat(price || 0);
@@ -126,6 +76,13 @@ const EditInvoiceScreen = ({ route, navigation }) => {
     setProductName(product.name);
     setPrice(product.price.toString());
     setShowProductSuggestions(false);
+    
+    // التركيز تلقائياً على حقل الكمية
+    setTimeout(() => {
+      if (quantityInputRef.current) {
+        quantityInputRef.current.focus();
+      }
+    }, 100);
   };
 
   const addItemToInvoice = async () => {
@@ -275,33 +232,25 @@ const EditInvoiceScreen = ({ route, navigation }) => {
       return;
     }
 
-    setIsSaving(true); // بدء التحميل
-
     try {
-      const updatedInvoice = {
+      await updateInvoice(invoice.id, {
         customer: customerName.trim(),
         date: invoiceDate,
         items: invoiceItems,
         total: currentTotal,
         previousBalance: parseFloat(previousBalance || 0),
         payment: parseFloat(paymentAmount || 0),
-      };
-
-      await updateInvoice(invoice.id, updatedInvoice);
+      });
 
       Toast.show({
         type: 'success',
-        text1: 'تم التحديث! 🎉',
+        text1: 'تم التحديث! ✅',
         text2: 'تم تحديث الفاتورة بنجاح',
         position: 'top',
         visibilityTime: 2000,
       });
 
-      setHasChanges(false); // إلغاء تتبع التغييرات
-
-      setTimeout(() => {
-        navigation.goBack();
-      }, 500);
+      navigation.goBack();
     } catch (error) {
       Toast.show({
         type: 'error',
@@ -309,8 +258,6 @@ const EditInvoiceScreen = ({ route, navigation }) => {
         text2: 'حدث خطأ أثناء تحديث الفاتورة',
         position: 'top',
       });
-    } finally {
-      setIsSaving(false); // إنهاء التحميل
     }
   };
 
@@ -439,6 +386,17 @@ const EditInvoiceScreen = ({ route, navigation }) => {
                 placeholderTextColor={COLORS.textLight}
                 onFocus={() => productName && setShowProductSuggestions(true)}
                 returnKeyType="next"
+                onSubmitEditing={() => {
+                  // إذا كان هناك اقتراح واحد فقط، اختره تلقائياً
+                  if (filteredProducts.length === 1) {
+                    selectProduct(filteredProducts[0]);
+                  } else {
+                    // انتقل للكمية
+                    if (quantityInputRef.current) {
+                      quantityInputRef.current.focus();
+                    }
+                  }
+                }}
               />
               
               {showProductSuggestions && (
@@ -464,6 +422,7 @@ const EditInvoiceScreen = ({ route, navigation }) => {
             <View style={[styles.inputGroup, styles.flex1]}>
               <Text style={styles.label}>الكمية:</Text>
               <TextInput
+                ref={quantityInputRef}
                 style={styles.input}
                 value={quantity}
                 onChangeText={setQuantity}
@@ -471,12 +430,18 @@ const EditInvoiceScreen = ({ route, navigation }) => {
                 keyboardType="numeric"
                 placeholderTextColor={COLORS.textLight}
                 returnKeyType="next"
+                onSubmitEditing={() => {
+                  if (priceInputRef.current) {
+                    priceInputRef.current.focus();
+                  }
+                }}
               />
             </View>
 
             <View style={[styles.inputGroup, styles.flex1]}>
               <Text style={styles.label}>السعر:</Text>
               <TextInput
+                ref={priceInputRef}
                 style={styles.input}
                 value={price}
                 onChangeText={setPrice}
@@ -545,7 +510,7 @@ const EditInvoiceScreen = ({ route, navigation }) => {
               <Text style={styles.sectionTitle}>المنتجات المضافة</Text>
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
-                  {invoiceItems.length}
+                  {toEnglishNumbers(invoiceItems.length)}
                 </Text>
               </View>
             </View>
@@ -619,24 +584,11 @@ const EditInvoiceScreen = ({ route, navigation }) => {
           <TouchableOpacity
             style={[styles.button, styles.updateButton]}
             onPress={handleUpdateInvoice}
-            disabled={isSaving}
           >
-            {isSaving ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Icon name="content-save" size={22} color="#fff" />
-            )}
+            <Icon name="content-save" size={22} color="#fff" />
             <Text style={styles.buttonText}>
-              {isSaving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+              تحديث الفاتورة
             </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, styles.cancelButtonStyle]}
-            onPress={() => navigation.goBack()}
-          >
-            <Icon name="close" size={22} color="#fff" />
-            <Text style={styles.buttonText}>إلغاء</Text>
           </TouchableOpacity>
         </View>
 

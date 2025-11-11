@@ -40,9 +40,10 @@ export const DatabaseProvider = ({ children }) => {
 
   const saveInvoice = async (invoice) => {
     try {
+      const nextId = invoices.length > 0 ? Math.max(...invoices.map(inv => inv.id)) + 1 : 1;
       const newInvoice = {
         ...invoice,
-        id: Date.now(),
+        id: nextId,
         createdAt: new Date().toISOString(),
       };
       
@@ -106,9 +107,10 @@ export const DatabaseProvider = ({ children }) => {
         return existing;
       }
 
+      const nextId = products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1;
       const newProduct = {
         ...product,
-        id: Date.now(),
+        id: nextId,
         createdAt: new Date().toISOString(),
       };
       
