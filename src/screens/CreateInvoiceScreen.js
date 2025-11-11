@@ -64,6 +64,8 @@ const CreateInvoiceScreen = ({ navigation }) => {
 
   // حفظ المسودة تلقائياً عند أي تغيير
   useEffect(() => {
+    if (isLoading) return; // لا تحفظ أثناء التحميل
+    
     const draft = {
       customerName,
       invoiceDate,
@@ -76,10 +78,10 @@ const CreateInvoiceScreen = ({ navigation }) => {
       paymentAmount,
     };
     
-    // حفظ المسودة بعد 500ms من آخر تغيير (debounce)
+    // حفظ بعد 1 ثانية من آخر تغيير (debounce)
     const timer = setTimeout(() => {
       saveDraft(draft);
-    }, 500);
+    }, 1000);
     
     return () => clearTimeout(timer);
   }, [
@@ -92,8 +94,24 @@ const CreateInvoiceScreen = ({ navigation }) => {
     invoiceItems,
     previousBalance,
     paymentAmount,
+    isLoading,
     saveDraft,
   ]);
+
+  // تحديث الحالة عند تحميل المسودة
+  useEffect(() => {
+    if (!isLoading && draftInvoice) {
+      setCustomerName(draftInvoice.customerName || '');
+      setInvoiceDate(draftInvoice.invoiceDate || getCurrentDate());
+      setProductName(draftInvoice.productName || '');
+      setQuantity(draftInvoice.quantity || '');
+      setPrice(draftInvoice.price || '');
+      setItemNotes(draftInvoice.itemNotes || '');
+      setInvoiceItems(draftInvoice.invoiceItems || []);
+      setPreviousBalance(draftInvoice.previousBalance || '');
+      setPaymentAmount(draftInvoice.paymentAmount || '');
+    }
+  }, [isLoading, draftInvoice]);
 
   // البحث عن المنتجات
   useEffect(() => {
