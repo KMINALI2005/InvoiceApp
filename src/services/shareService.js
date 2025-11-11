@@ -2,6 +2,7 @@
 import Share from 'react-native-share';
 import RNFS from 'react-native-fs';
 import { formatCurrency, toEnglishNumbers, getCurrentDate, getCurrentTime } from '../utils/formatters';
+import { TextDecoder } from 'text-encoding';
 
 // مشاركة فاتورة كنص
 export const shareInvoiceText = async (invoice) => {

@@ -422,7 +422,7 @@ const ProductsScreen = ({ navigation }) => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [filteredAndSortedProducts]);
+  }, [filteredAndSortedProducts, fadeAnim, scaleAnim]);
 
   if (loading) {
     return (

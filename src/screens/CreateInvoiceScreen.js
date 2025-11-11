@@ -1,5 +1,5 @@
 // src/screens/CreateInvoiceScreen.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -95,7 +95,7 @@ const CreateInvoiceScreen = ({ navigation }) => {
     } else {
       setShowCustomerSuggestions(false);
     }
-  }, [customerName, invoices]);
+  }, [customerName, invoices, selectCustomer]);
 
   // اختيار منتج من الاقتراحات
   const selectProduct = (product) => {
@@ -112,7 +112,7 @@ const CreateInvoiceScreen = ({ navigation }) => {
   };
 
   // اختيار زبون من الاقتراحات
-  const selectCustomer = (customer) => {
+  const selectCustomer = useCallback((customer) => {
     setCustomerName(customer);
     setShowCustomerSuggestions(false);
     
@@ -142,7 +142,7 @@ const CreateInvoiceScreen = ({ navigation }) => {
         productNameInputRef.current.focus();
       }
     }, 150);
-  };
+  }, [invoices, setPreviousBalance, productNameInputRef]);
 
   // إضافة منتج للفاتورة
   const addItemToInvoice = async () => {
@@ -754,29 +754,29 @@ const CreateInvoiceScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.backgroundSoft,
+    backgroundColor: COLORS.background,
   },
   header: {
     backgroundColor: COLORS.primary,
     padding: 24,
     alignItems: 'center',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     elevation: 8,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: 12,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#fff',
+    color: COLORS.textWhite,
     marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#f0fdfa',
+    color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '600',
   },
   content: {
@@ -784,23 +784,17 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   section: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 20,
     padding: 20,
     marginBottom: 16,
-    borderWidth: 2,
-    borderColor: COLORS.border,
-    elevation: 2,
-    shadowColor: COLORS.shadow,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    elevation: 3,
+    shadowColor: COLORS.cardShadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+    shadowRadius: 8,
   },
   sectionTitle: {
     fontSize: 18,
@@ -811,55 +805,46 @@ const styles = StyleSheet.create({
   badge: {
     backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    elevation: 2,
   },
   badgeText: {
-    color: '#fff',
+    color: COLORS.textWhite,
     fontSize: 14,
     fontWeight: '700',
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textDark,
-    marginBottom: 8,
   },
   input: {
     backgroundColor: COLORS.backgroundLight,
     borderWidth: 2,
     borderColor: COLORS.border,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 14,
     fontSize: 16,
     color: COLORS.textDark,
   },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  flex1: {
-    flex: 1,
-  },
-  autocompleteContainer: {
-    position: 'relative',
+  // عند التركيز على Input
+  inputFocused: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.cardBg,
   },
   suggestionsContainer: {
     position: 'absolute',
     top: '100%',
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.cardBg,
     borderWidth: 2,
-    borderColor: COLORS.border,
-    borderRadius: 12,
+    borderColor: COLORS.primary,
+    borderRadius: 14,
     marginTop: 4,
     maxHeight: 200,
     zIndex: 1000,
-    elevation: 5,
+    elevation: 8,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
   },
   suggestionItem: {
     padding: 14,
@@ -869,32 +854,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  suggestionName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.textDark,
-  },
-  suggestionPrice: {
-    fontSize: 13,
-    color: COLORS.success,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  suggestionHint: {
-    fontSize: 11,
-    color: COLORS.textLight,
-    marginTop: 2,
-  },
   lineTotalCard: {
-    backgroundColor: COLORS.backgroundLight,
+    background: `linear-gradient(135deg, ${COLORS.primaryLight}, ${COLORS.secondaryLight})`,
+    backgroundColor: COLORS.primaryLight,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: COLORS.primary,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    elevation: 3,
   },
   lineTotalLabel: {
     fontSize: 16,
@@ -906,10 +877,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: COLORS.primary,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+  // الأزرار المحدثة
   button: {
     flex: 1,
     flexDirection: 'row',
@@ -917,139 +885,77 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     padding: 16,
-    borderRadius: 12,
-    elevation: 3,
+    borderRadius: 14,
+    elevation: 4,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   primaryButton: {
     backgroundColor: COLORS.primary,
   },
   secondaryButton: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.cardBg,
     borderWidth: 2,
     borderColor: COLORS.primary,
+  },
+  saveButton: {
+    backgroundColor: COLORS.success,
+    shadowColor: COLORS.success,
+  },
+  clearButton: {
+    backgroundColor: COLORS.danger,
+    shadowColor: COLORS.danger,
+  },
+  editButton: {
+    backgroundColor: COLORS.info,
+    shadowColor: COLORS.info,
+  },
+  deleteButton: {
+    backgroundColor: COLORS.danger,
+    shadowColor: COLORS.danger,
   },
   buttonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.textWhite,
   },
   secondaryButtonText: {
     color: COLORS.primary,
   },
+  // المنتجات المضافة
   invoiceItem: {
     backgroundColor: COLORS.backgroundLight,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: COLORS.border,
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 12,
+    elevation: 2,
   },
   itemNumberBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  itemNumberText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  itemProductName: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.textDark,
-  },
-  itemDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    gap: 12,
-  },
-  itemDetailRow: {
-    flex: 1,
-  },
-  itemLabel: {
-    fontSize: 12,
-    color: COLORS.textLight,
-    marginBottom: 4,
-  },
-  itemValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textDark,
+    elevation: 2,
   },
   itemTotal: {
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.primary,
   },
-  itemNotesContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#fff',
-    padding: 8,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  itemNotes: {
-    flex: 1,
-    fontSize: 13,
-    color: COLORS.textMedium,
-    fontStyle: 'italic',
-  },
-  itemActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  itemActionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    padding: 10,
-    borderRadius: 8,
-  },
-  editButton: {
-    backgroundColor: COLORS.success,
-  },
-  deleteButton: {
-    backgroundColor: COLORS.danger,
-  },
-  itemActionText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
-  },
+  // ملخص الفاتورة
   summaryCard: {
     backgroundColor: COLORS.backgroundLight,
     padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
+    borderRadius: 14,
+    borderWidth: 1,
     borderColor: COLORS.border,
     marginBottom: 16,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  summaryLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.textDark,
   },
   summaryValue: {
     fontSize: 16,
@@ -1057,16 +963,12 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
   finalCard: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.cardBg,
     borderColor: COLORS.primary,
     borderWidth: 2,
-  },
-  finalLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.textDark,
-    marginBottom: 8,
-    textAlign: 'center',
+    elevation: 4,
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.15,
   },
   finalValue: {
     fontSize: 24,
@@ -1078,17 +980,6 @@ const styles = StyleSheet.create({
   },
   creditValue: {
     color: COLORS.success,
-  },
-  actionsSection: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  saveButton: {
-    backgroundColor: COLORS.primary,
-  },
-  clearButton: {
-    backgroundColor: COLORS.danger,
   },
 });
 

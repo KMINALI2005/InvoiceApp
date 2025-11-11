@@ -25,7 +25,8 @@
     "react-native-screens": "^4.18.0",
     "react-native-share": "^12.2.0",
     "react-native-toast-message": "^2.3.3",
-    "react-native-vector-icons": "^10.3.0"
+    "react-native-vector-icons": "^10.3.0",
+    "text-encoding": "^0.7.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
