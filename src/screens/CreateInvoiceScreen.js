@@ -405,7 +405,7 @@ const CreateInvoiceScreen = ({ navigation }) => {
   };
 
   // مسح الفاتورة
-  const clearInvoiceForm = () => {
+  const clearInvoiceForm = async () => {
     setCustomerName('');
     setInvoiceDate(getCurrentDate());
     setInvoiceItems([]);
@@ -416,7 +416,7 @@ const CreateInvoiceScreen = ({ navigation }) => {
     setEditingItemIndex(null);
     
     // مسح المسودة من الذاكرة
-    clearDraft();
+    await clearDraft();
   };
 
   // تأكيد مسح الفاتورة
