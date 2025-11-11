@@ -500,6 +500,25 @@ const CreateInvoiceScreen = ({ navigation }) => {
         <Text style={styles.headerSubtitle}>للمواد الغذائية والحلويات</Text>
       </View>
 
+      {/* مؤشر المسودة */}
+      {hasDraft && (
+        <View style={styles.draftIndicator}>
+          <Icon name="file-document-edit" size={18} color={COLORS.warning} />
+          <Text style={styles.draftText}>
+            مسودة غير محفوظة
+            {invoiceItems.length > 0 && ` (${invoiceItems.length} منتج)`}
+          </Text>
+          {draftInvoice.lastSaved && (
+            <Text style={styles.draftTime}>
+              آخر حفظ: {new Date(draftInvoice.lastSaved).toLocaleTimeString('ar-IQ', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              })}
+            </Text>
+          )}
+        </View>
+      )}
+
       <ScrollView 
         style={styles.content}
         showsVerticalScrollIndicator={false}
@@ -835,6 +854,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '600',
+  },
+  draftIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.backgroundLight,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginTop: -20,
+    marginBottom: 10,
+    elevation: 3,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  draftText: {
+    fontSize: 13,
+    color: COLORS.textDark,
+    fontWeight: '600',
+    marginRight: 8,
+    marginLeft: 8,
+  },
+  draftTime: {
+    fontSize: 11,
+    color: COLORS.textLight,
+    fontStyle: 'italic',
   },
   content: {
     flex: 1,
