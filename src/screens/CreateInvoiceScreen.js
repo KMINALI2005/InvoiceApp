@@ -14,32 +14,35 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useDatabase } from '../database/database';
+import { useInvoiceDraft } from '../context/InvoiceDraftContext';
 import { formatCurrency, toEnglishNumbers, getCurrentDate } from '../utils/formatters';
 import { COLORS, GRADIENTS } from '../utils/colors';
 import Toast from 'react-native-toast-message';
 
 const CreateInvoiceScreen = ({ navigation }) => {
+  const { draftInvoice, saveDraft, clearDraft } = useInvoiceDraft();
+  
   // البيانات الأساسية
   const { products, invoices, saveInvoice, saveProduct } = useDatabase();
   const productNameInputRef = useRef(null);
   const quantityInputRef = useRef(null);
   const priceInputRef = useRef(null);
   const customerNameInputRef = useRef(null);
-  const [customerName, setCustomerName] = useState('');
-  const [invoiceDate, setInvoiceDate] = useState(getCurrentDate());
+  const [customerName, setCustomerName] = useState(draftInvoice.customerName || '');
+  const [invoiceDate, setInvoiceDate] = useState(draftInvoice.invoiceDate || getCurrentDate());
   
   // بيانات المنتج الحالي
-  const [productName, setProductName] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [price, setPrice] = useState('');
-  const [itemNotes, setItemNotes] = useState('');
+  const [productName, setProductName] = useState(draftInvoice.productName || '');
+  const [quantity, setQuantity] = useState(draftInvoice.quantity || '');
+  const [price, setPrice] = useState(draftInvoice.price || '');
+  const [itemNotes, setItemNotes] = useState(draftInvoice.itemNotes || '');
   
   // قائمة المنتجات في الفاتورة
-  const [invoiceItems, setInvoiceItems] = useState([]);
+  const [invoiceItems, setInvoiceItems] = useState(draftInvoice.invoiceItems || []);
   
   // المبالغ المالية
-  const [previousBalance, setPreviousBalance] = useState('');
-  const [paymentAmount, setPaymentAmount] = useState('');
+  const [previousBalance, setPreviousBalance] = useState(draftInvoice.previousBalance || '');
+  const [paymentAmount, setPaymentAmount] = useState(draftInvoice.paymentAmount || '');
   
   // حالة البحث والاقتراحات
   const [showProductSuggestions, setShowProductSuggestions] = useState(false);
@@ -58,6 +61,39 @@ const CreateInvoiceScreen = ({ navigation }) => {
     currentTotal + 
     parseFloat(previousBalance || 0) - 
     parseFloat(paymentAmount || 0);
+
+  // حفظ المسودة تلقائياً عند أي تغيير
+  useEffect(() => {
+    const draft = {
+      customerName,
+      invoiceDate,
+      productName,
+      quantity,
+      price,
+      itemNotes,
+      invoiceItems,
+      previousBalance,
+      paymentAmount,
+    };
+    
+    // حفظ المسودة بعد 500ms من آخر تغيير (debounce)
+    const timer = setTimeout(() => {
+      saveDraft(draft);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [
+    customerName,
+    invoiceDate,
+    productName,
+    quantity,
+    price,
+    itemNotes,
+    invoiceItems,
+    previousBalance,
+    paymentAmount,
+    saveDraft,
+  ]);
 
   // البحث عن المنتجات
   useEffect(() => {
@@ -360,6 +396,9 @@ const CreateInvoiceScreen = ({ navigation }) => {
     clearItemFields();
     setIsEditingItem(false);
     setEditingItemIndex(null);
+    
+    // مسح المسودة من الذاكرة
+    clearDraft();
   };
 
   // تأكيد مسح الفاتورة
