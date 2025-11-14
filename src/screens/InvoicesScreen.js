@@ -843,14 +843,15 @@ const styles = StyleSheet.create({
   statsContainer: {
     marginBottom: isTablet ? 24 : 16,
   },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: isTablet ? 16 : 12,
-  },
-  statCard: {
-    flex: isTablet ? 0 : 1,
-    minWidth: isTablet ? 180 : 0,
+statsGrid: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  gap: isTablet ? 16 : 12,
+},
+statCard: {
+  flex: 1,
+  minWidth: isTablet ? 180 : 150, // تغيير من 0 إلى 150
+  maxWidth: isTablet ? undefined : '48%', // إضافة هذا السطر
     flexDirection: 'row',
     alignItems: 'center',
     padding: isTablet ? 16 : 12,

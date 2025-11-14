@@ -37,8 +37,8 @@ const _generateInvoiceHtml = (invoice) => {
         body {
           font-family: 'Cairo', 'Tajawal', 'Arial', sans-serif;
           direction: rtl;
-          font-size: 11pt;
-          line-height: 1.2;
+          font-size: 12pt;
+          line-height: 1.3;
           color: #000;
           background: white;
         }
@@ -48,7 +48,7 @@ const _generateInvoiceHtml = (invoice) => {
           border: 2.5px solid #000;
           border-radius: 10px;
           padding: 8px 12px;
-          margin-bottom: 8px;
+          margin-bottom: 10px;
           background: #fff;
         }
         
@@ -197,7 +197,7 @@ const _generateInvoiceHtml = (invoice) => {
           font-size: 10.5pt;
           border: 1.5px solid #000;
           border-radius: 8px;
-          margin-bottom: 6px;
+          margin-bottom: 8px;
           align-items: center;
           background: #f8f8f8;
         }
@@ -216,7 +216,7 @@ const _generateInvoiceHtml = (invoice) => {
         .items-table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 9pt;
+          font-size: 10pt;
           border-radius: 8px;
           overflow: hidden;
         }
@@ -224,7 +224,7 @@ const _generateInvoiceHtml = (invoice) => {
         .items-table th,
         .items-table td {
           border: 1.5px solid #000;
-          padding: 2.5px;
+          padding: 4px;
           text-align: center;
           font-weight: 600;
         }
@@ -241,7 +241,7 @@ const _generateInvoiceHtml = (invoice) => {
           text-align: right;
           padding-right: 8px;
           font-weight: 600;
-          font-size: 9.5pt;
+          font-size: 10pt;
           color: #000;
         }
         
@@ -252,7 +252,7 @@ const _generateInvoiceHtml = (invoice) => {
         /* ملخص الحساب - مستطيلات أرفع */
         .summary-section {
           padding-top: 6px;
-          margin-top: 6px;
+          margin-top: 8px;
           border-top: 2.5px solid #000;
           page-break-inside: avoid;
         }
@@ -280,7 +280,7 @@ const _generateInvoiceHtml = (invoice) => {
         
         .summary-item .label {
           font-weight: 700;
-          font-size: 10pt;
+          font-size: 10.5pt;
           color: #000;
           margin-left: 6px;
           white-space: nowrap;
@@ -288,7 +288,7 @@ const _generateInvoiceHtml = (invoice) => {
         
         .summary-item .value {
           font-weight: 700;
-          font-size: 11pt;
+          font-size: 12pt;
           color: #000;
           white-space: nowrap;
         }

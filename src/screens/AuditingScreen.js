@@ -885,9 +885,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: isTablet ? 16 : 12,
   },
-  statCard: {
-    flex: isTablet ? 0 : 1,
-    minWidth: isTablet ? 180 : 0,
+statCard: {
+  flex: 1,
+  minWidth: isTablet ? 180 : 150,
+  maxWidth: isTablet ? undefined : '48%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,

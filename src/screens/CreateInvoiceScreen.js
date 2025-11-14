@@ -967,29 +967,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  lineTotalCard: {
-    background: `linear-gradient(135deg, ${COLORS.primaryLight}, ${COLORS.secondaryLight})`,
-    backgroundColor: COLORS.primaryLight,
-    padding: 16,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    elevation: 3,
-  },
-  lineTotalLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.textDark,
-  },
-  lineTotalValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.primary,
-  },
+lineTotalCard: {
+  background: `linear-gradient(135deg, ${COLORS.primaryLight}, ${COLORS.secondaryLight})`,
+  backgroundColor: '#f0fdf4', // تغيير لون الخلفية إلى أخضر فاتح جداً
+  padding: 16,
+  borderRadius: 14,
+  borderWidth: 2,
+  borderColor: COLORS.success, // تغيير من primary إلى success (أخضر)
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 16,
+  elevation: 3,
+},
+lineTotalLabel: {
+  fontSize: 16,
+  fontWeight: '700',
+  color: COLORS.success, // تغيير من textDark إلى success (أخضر)
+},
+lineTotalValue: {
+  fontSize: 20,
+  fontWeight: '800',
+  color: COLORS.success, // يبقى أخضر
+},
   // الأزرار المحدثة
   button: {
     flex: 1,
