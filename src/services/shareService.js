@@ -29,7 +29,7 @@ export const shareInvoiceText = async (invoice) => {
     shareText += `📊 الحساب السابق: ${formatCurrency(invoice.previousBalance)} دينار\n`;
     shareText += `💳 المبلغ الواصل: ${formatCurrency(invoice.payment)} دينار\n`;
     shareText += `⚠️ *المتبقي: ${formatCurrency(remaining)} دينار*\n\n`;
-    shareText += `🏪 محلات ابو جعفر الرديني\nللمواد الغذائية والتموينية`;
+    shareText += `🏪 محل استاذ خالد كوزمتك\nلبيع العطور بادراة عبدالله علي`;
 
     const shareOptions = {
       title: 'مشاركة الفاتورة',
@@ -89,7 +89,7 @@ export const shareCustomerStatement = async (customerName, invoices) => {
     shareText += `💰 إجمالي المبيعات: ${formatCurrency(totalInvoicesAmount)}\n`;
     shareText += `⚠️ *الرصيد النهائي: ${formatCurrency(finalRemaining)}*\n`;
     shareText += `────────────────────────────\n\n`;
-    shareText += `🪙 محلات ابو جعفر الرديني\nللمواد الغذائية والتموينية`;
+    shareText += `🪙 محل استاذ خالد كوزمتك\nلبيع العطور بادراة عبدالله علي`;
 
     const shareOptions = {
       title: 'مشاركة كشف الحساب',
@@ -432,7 +432,7 @@ export const shareReportText = async (reportData) => {
     reportText += `⚠️ إجمالي المتبقي: ${formatCurrency(stats.totalRemaining)} دينار\n\n`;
     
     reportText += `────────────────────────────\n`;
-    reportText += `🏪 محلات ابو جعفر الرديني`;
+    reportText += `🏪 محل استاذ خالد كوزمتك`;
 
     const shareOptions = {
       title: 'مشاركة التقرير',

@@ -1,4 +1,4 @@
-// src/screens/AuditingScreen.js
+// src/screens/AuditingScreen.js - محدث بنظام الدفعات
 import React, { useState, useMemo } from 'react';
 import {
   View,
@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Dimensions,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useDatabase } from '../database/database';
@@ -22,11 +23,24 @@ const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
 
 const AuditingScreen = ({ navigation }) => {
-  const { invoices, loading } = useDatabase();
+  const { 
+    invoices, 
+    loading,
+    addPayment,
+    deletePayment,
+    getCustomerPayments,
+    getCustomerBalance, // ✅ استخدام الدالة الجديدة
+  } = useDatabase();
   
-  // حالة البحث
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCustomers, setExpandedCustomers] = useState(new Set());
+  
+  // ✅ حالة مودال الدفع
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentDate, setPaymentDate] = useState(getCurrentDate());
+  const [paymentNotes, setPaymentNotes] = useState('');
 
   // تجميع الفواتير حسب الزبون
   const groupedInvoices = useMemo(() => {
@@ -39,7 +53,6 @@ const AuditingScreen = ({ navigation }) => {
       grouped[inv.customer].push(inv);
     });
 
-    // ترتيب الفواتير داخل كل مجموعة
     Object.keys(grouped).forEach(customer => {
       grouped[customer].sort((a, b) => a.id - b.id);
     });
@@ -47,7 +60,6 @@ const AuditingScreen = ({ navigation }) => {
     return grouped;
   }, [invoices]);
 
-  // تصفية الزبائن حسب البحث
   const filteredCustomerNames = useMemo(() => {
     let customers = Object.keys(groupedInvoices);
     
@@ -61,7 +73,7 @@ const AuditingScreen = ({ navigation }) => {
     return customers.sort((a, b) => a.localeCompare(b, 'ar'));
   }, [groupedInvoices, searchQuery]);
 
-  // حساب الإحصائيات الإجمالية
+  // ✅ حساب الإحصائيات باستخدام الدالة الجديدة
   const totalStats = useMemo(() => {
     let totalCustomers = Object.keys(groupedInvoices).length;
     let totalInvoices = invoices.length;
@@ -69,20 +81,14 @@ const AuditingScreen = ({ navigation }) => {
     let customersWithDebt = 0;
     let customersWithCredit = 0;
 
-    Object.entries(groupedInvoices).forEach(([customer, invs]) => {
-      const latestInvoice = invs[invs.length - 1];
-      if (latestInvoice) {
-        const remaining = (latestInvoice.total || 0) + 
-          (latestInvoice.previousBalance || 0) - 
-          (latestInvoice.payment || 0);
-        
-        totalRemaining += remaining;
-        
-        if (remaining > 0) {
-          customersWithDebt++;
-        } else if (remaining < 0) {
-          customersWithCredit++;
-        }
+    Object.keys(groupedInvoices).forEach(customer => {
+      const remaining = getCustomerBalance(customer);
+      totalRemaining += remaining;
+      
+      if (remaining > 0) {
+        customersWithDebt++;
+      } else if (remaining < 0) {
+        customersWithCredit++;
       }
     });
 
@@ -93,9 +99,8 @@ const AuditingScreen = ({ navigation }) => {
       customersWithDebt,
       customersWithCredit,
     };
-  }, [groupedInvoices, invoices]);
+  }, [groupedInvoices, invoices, getCustomerBalance]);
 
-  // Toggle توسيع تفاصيل الزبون
   const toggleCustomerExpansion = (customerName) => {
     setExpandedCustomers(prev => {
       const newSet = new Set(prev);
@@ -108,7 +113,67 @@ const AuditingScreen = ({ navigation }) => {
     });
   };
 
-  // طباعة كشف حساب
+  // ✅ فتح مودال الدفع
+  const openPaymentModal = (customerName) => {
+    setSelectedCustomer(customerName);
+    setPaymentAmount('');
+    setPaymentDate(getCurrentDate());
+    setPaymentNotes('');
+    setShowPaymentModal(true);
+  };
+
+  // ✅ إضافة دفعة جديدة
+  const handleAddPayment = async () => {
+    const amount = parseFloat(paymentAmount);
+
+    if (!amount || amount <= 0) {
+      Toast.show({
+        type: 'error',
+        text1: 'خطأ',
+        text2: 'يرجى إدخال مبلغ صحيح',
+        position: 'top',
+      });
+      return;
+    }
+
+    const currentBalance = getCustomerBalance(selectedCustomer);
+    if (amount > currentBalance) {
+      Toast.show({
+        type: 'warning',
+        text1: 'تحذير',
+        text2: `المبلغ أكبر من المتبقي (${formatCurrency(currentBalance)} دينار)`,
+        position: 'top',
+      });
+      // يمكن السماح بالمتابعة أو الإلغاء حسب رغبتك
+    }
+
+    try {
+      await addPayment({
+        customer: selectedCustomer,
+        amount: amount,
+        date: paymentDate,
+        notes: paymentNotes,
+      });
+
+      Toast.show({
+        type: 'success',
+        text1: 'تم التسديد! ✅',
+        text2: `تم تسجيل دفعة ${formatCurrency(amount)} دينار`,
+        position: 'top',
+      });
+
+      setShowPaymentModal(false);
+      setSelectedCustomer(null);
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'فشلت العملية',
+        text2: 'حدث خطأ أثناء تسجيل الدفعة',
+        position: 'top',
+      });
+    }
+  };
+
   const handlePrintStatement = async (customerName, invoices) => {
     const result = await printCustomerStatement(customerName, invoices);
     
@@ -129,7 +194,6 @@ const AuditingScreen = ({ navigation }) => {
     }
   };
 
-  // مشاركة كشف حساب
   const handleShareStatement = async (customerName, invoices) => {
     const result = await shareCustomerStatement(customerName, invoices);
     
@@ -150,7 +214,6 @@ const AuditingScreen = ({ navigation }) => {
     }
   };
 
-  // عرض بطاقة إحصائية
   const StatCard = ({ icon, label, value, color }) => (
     <View style={[styles.statCard, { borderLeftColor: color }]}>
       <View style={[styles.statIconContainer, { backgroundColor: color }]}>
@@ -163,18 +226,17 @@ const AuditingScreen = ({ navigation }) => {
     </View>
   );
 
-  // عرض بطاقة زبون
   const CustomerCard = ({ customerName, invoices }) => {
     const isExpanded = expandedCustomers.has(customerName);
     const sortedInvoices = [...invoices].sort((a, b) => a.id - b.id);
-    const latestInvoice = sortedInvoices[sortedInvoices.length - 1];
     
-    const finalRemaining = latestInvoice 
-      ? ((latestInvoice.total || 0) + (latestInvoice.previousBalance || 0) - (latestInvoice.payment || 0))
-      : 0;
+    // ✅ استخدام الدالة الجديدة
+    const finalRemaining = getCustomerBalance(customerName);
+    const customerPayments = getCustomerPayments(customerName);
     
     const totalInvoicesAmount = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
     const totalPaid = invoices.reduce((sum, inv) => sum + (inv.payment || 0), 0);
+    const totalStandalonePayments = customerPayments.reduce((sum, p) => sum + p.amount, 0);
     
     const statusColor = finalRemaining > 0 ? COLORS.danger : 
                        finalRemaining < 0 ? COLORS.success : 
@@ -182,7 +244,6 @@ const AuditingScreen = ({ navigation }) => {
 
     return (
       <View style={styles.customerCard}>
-        {/* هيدر الزبون */}
         <TouchableOpacity
           style={[styles.customerHeader, { borderLeftColor: statusColor }]}
           onPress={() => toggleCustomerExpansion(customerName)}
@@ -228,11 +289,18 @@ const AuditingScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        {/* تفاصيل الفواتير */}
         {isExpanded && (
           <View style={styles.customerDetails}>
-            {/* الإجراءات */}
             <View style={styles.customerActions}>
+              {/* ✅ زر الدفع الجديد */}
+              <TouchableOpacity
+                style={[styles.customerActionButton, { backgroundColor: COLORS.warning }]}
+                onPress={() => openPaymentModal(customerName)}
+              >
+                <Icon name="cash-plus" size={18} color="#fff" />
+                <Text style={styles.customerActionText}>تسديد</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={[styles.customerActionButton, { backgroundColor: COLORS.success }]}
                 onPress={() => handlePrintStatement(customerName, invoices)}
@@ -250,7 +318,32 @@ const AuditingScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* جدول الفواتير */}
+            {/* ✅ عرض الدفعات المستقلة */}
+            {customerPayments.length > 0 && (
+              <View style={styles.paymentsSection}>
+                <Text style={styles.paymentsSectionTitle}>
+                  💳 الدفعات المستقلة ({toEnglishNumbers(customerPayments.length)})
+                </Text>
+                {customerPayments.map(payment => (
+                  <View key={payment.id} style={styles.paymentItem}>
+                    <View style={styles.paymentInfo}>
+                      <Text style={styles.paymentAmount}>
+                        {formatCurrency(payment.amount)} دينار
+                      </Text>
+                      <Text style={styles.paymentDate}>
+                        📅 {toEnglishNumbers(payment.date)}
+                      </Text>
+                      {payment.notes && (
+                        <Text style={styles.paymentNotes}>
+                          📝 {payment.notes}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
             <View style={styles.invoicesTable}>
               <View style={styles.tableHeader}>
                 <Text style={[styles.tableHeaderCell, styles.invoiceIdCell]}>#</Text>
@@ -291,18 +384,25 @@ const AuditingScreen = ({ navigation }) => {
               })}
             </View>
 
-            {/* ملخص الحساب */}
             <View style={styles.summaryCard}>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>إجمالي المشتريات:</Text>
                 <Text style={styles.summaryValue}>{formatCurrency(totalInvoicesAmount)}</Text>
               </View>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>إجمالي المدفوع:</Text>
+                <Text style={styles.summaryLabel}>إجمالي المدفوع (فواتير):</Text>
                 <Text style={[styles.summaryValue, { color: COLORS.success }]}>
                   {formatCurrency(totalPaid)}
                 </Text>
               </View>
+              {totalStandalonePayments > 0 && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>الدفعات المستقلة:</Text>
+                  <Text style={[styles.summaryValue, { color: COLORS.info }]}>
+                    {formatCurrency(totalStandalonePayments)}
+                  </Text>
+                </View>
+              )}
               <View style={[styles.summaryRow, styles.finalRow]}>
                 <Text style={styles.finalLabel}>الرصيد النهائي:</Text>
                 <Text style={[styles.finalValue, { color: statusColor }]}>
@@ -327,7 +427,6 @@ const AuditingScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* الهيدر */}
       <View style={styles.header}>
         <Icon name="account-check" size={28} color="#fff" />
         <Text style={styles.headerTitle}>مراجعة الحسابات</Text>
@@ -342,7 +441,6 @@ const AuditingScreen = ({ navigation }) => {
         style={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* معلومات المراجعة */}
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
             <Icon name="calendar-clock" size={20} color={COLORS.primary} />
@@ -352,7 +450,6 @@ const AuditingScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* الإحصائيات الإجمالية */}
         <View style={styles.statsSection}>
           <View style={styles.sectionHeader}>
             <Icon name="chart-box" size={24} color={COLORS.primary} />
@@ -387,7 +484,6 @@ const AuditingScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* شريط البحث */}
         <View style={styles.searchContainer}>
           <Icon name="magnify" size={22} color={COLORS.textLight} />
           <TextInput
@@ -404,7 +500,6 @@ const AuditingScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* قائمة الزبائن */}
         {filteredCustomerNames.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Icon name="account-off" size={64} color={COLORS.textLight} />
@@ -429,7 +524,6 @@ const AuditingScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* ملخص نهائي */}
         {filteredCustomerNames.length > 0 && (
           <View style={styles.finalSummaryCard}>
             <View style={styles.finalSummaryHeader}>
@@ -459,14 +553,243 @@ const AuditingScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* مساحة إضافية */}
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* ✅ مودال إضافة دفعة */}
+      <Modal
+        visible={showPaymentModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPaymentModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowPaymentModal(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Icon name="cash-plus" size={32} color={COLORS.warning} />
+              <Text style={styles.modalTitle}>تسديد دفعة</Text>
+            </View>
+
+            <Text style={styles.modalSubtitle}>
+              الزبون: {selectedCustomer}
+            </Text>
+
+            <Text style={styles.modalBalanceInfo}>
+              الرصيد الحالي: {formatCurrency(getCustomerBalance(selectedCustomer || ''))} دينار
+            </Text>
+
+            <View style={styles.modalInputGroup}>
+              <Text style={styles.modalLabel}>المبلغ المدفوع:</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={paymentAmount}
+                onChangeText={setPaymentAmount}
+                placeholder="0"
+                keyboardType="numeric"
+                placeholderTextColor={COLORS.textLight}
+              />
+            </View>
+
+            <View style={styles.modalInputGroup}>
+              <Text style={styles.modalLabel}>تاريخ الدفع:</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={paymentDate}
+                onChangeText={setPaymentDate}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={COLORS.textLight}
+              />
+            </View>
+
+            <View style={styles.modalInputGroup}>
+              <Text style={styles.modalLabel}>ملاحظات (اختياري):</Text>
+              <TextInput
+                style={[styles.modalInput, styles.modalTextArea]}
+                value={paymentNotes}
+                onChangeText={setPaymentNotes}
+                placeholder="أضف ملاحظة..."
+                placeholderTextColor={COLORS.textLight}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowPaymentModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>إلغاء</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleAddPayment}
+              >
+                <Icon name="check" size={20} color="#fff" />
+                <Text style={styles.confirmButtonText}>تسديد</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  // ... (استخدم الـ styles الموجودة وأضف هذه الإضافات)
+  
+  // ✅ Styles جديدة للمودال
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: isTablet ? 32 : 24,
+    width: '100%',
+    maxWidth: isTablet ? 500 : 400,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: isTablet ? 24 : 20,
+  },
+  modalTitle: {
+    fontSize: isTablet ? 24 : 20,
+    fontWeight: '800',
+    color: COLORS.textDark,
+    marginTop: 12,
+  },
+  modalSubtitle: {
+    fontSize: isTablet ? 18 : 16,
+    fontWeight: '700',
+    color: COLORS.primary,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalBalanceInfo: {
+    fontSize: isTablet ? 16 : 14,
+    fontWeight: '600',
+    color: COLORS.textMedium,
+    textAlign: 'center',
+    marginBottom: 24,
+    padding: 12,
+    backgroundColor: COLORS.backgroundLight,
+    borderRadius: 8,
+  },
+  modalInputGroup: {
+    marginBottom: 20,
+  },
+  modalLabel: {
+    fontSize: isTablet ? 15 : 14,
+    fontWeight: '700',
+    color: COLORS.textDark,
+    marginBottom: 8,
+  },
+  modalInput: {
+    backgroundColor: COLORS.backgroundLight,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    padding: isTablet ? 16 : 14,
+    fontSize: isTablet ? 16 : 15,
+    color: COLORS.textDark,
+  },
+  modalTextArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+  modalButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: isTablet ? 16 : 14,
+    borderRadius: 12,
+    elevation: 3,
+  },
+  cancelButton: {
+    backgroundColor: COLORS.backgroundLight,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+  },
+  cancelButtonText: {
+    fontSize: isTablet ? 16 : 15,
+    fontWeight: '700',
+    color: COLORS.textDark,
+  },
+  confirmButton: {
+    backgroundColor: COLORS.warning,
+  },
+  confirmButtonText: {
+    fontSize: isTablet ? 16 : 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  
+  // ✅ Styles للدفعات المستقلة
+  paymentsSection: {
+    backgroundColor: '#fffbeb',
+    borderRadius: 12,
+    padding: isTablet ? 16 : 14,
+    marginBottom: isTablet ? 16 : 14,
+    borderWidth: 2,
+    borderColor: COLORS.warning,
+  },
+  paymentsSectionTitle: {
+    fontSize: isTablet ? 16 : 14,
+    fontWeight: '700',
+    color: COLORS.warning,
+    marginBottom: 12,
+  },
+  paymentItem: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: isTablet ? 12 : 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  paymentInfo: {
+    gap: 4,
+  },
+  paymentAmount: {
+    fontSize: isTablet ? 16 : 14,
+    fontWeight: '800',
+    color: COLORS.warning,
+  },
+  paymentDate: {
+    fontSize: isTablet ? 13 : 12,
+    fontWeight: '600',
+    color: COLORS.textMedium,
+  },
+  paymentNotes: {
+    fontSize: isTablet ? 12 : 11,
+    color: COLORS.textLight,
+    fontStyle: 'italic',
+  },
+  
+  // باقي الـ styles من الكود الأصلي
   container: {
     flex: 1,
     backgroundColor: COLORS.backgroundSoft,

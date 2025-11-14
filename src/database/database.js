@@ -1,4 +1,4 @@
-// InvoiceApp/src/database/database.js
+// InvoiceApp/src/database/database.js - محدث بنظام الدفعات
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -16,6 +16,7 @@ export const useDatabase = () => {
 export const DatabaseProvider = ({ children }) => {
   const [invoices, setInvoices] = useState([]);
   const [products, setProducts] = useState([]);
+  const [payments, setPayments] = useState([]); // ✅ جدول الدفعات الجديد
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,13 +25,15 @@ export const DatabaseProvider = ({ children }) => {
 
   const loadData = async () => {
     try {
-      const [invoicesData, productsData] = await Promise.all([
+      const [invoicesData, productsData, paymentsData] = await Promise.all([
         AsyncStorage.getItem('invoices'),
         AsyncStorage.getItem('products'),
+        AsyncStorage.getItem('payments'), // ✅ تحميل الدفعات
       ]);
 
       setInvoices(invoicesData ? JSON.parse(invoicesData) : []);
       setProducts(productsData ? JSON.parse(productsData) : []);
+      setPayments(paymentsData ? JSON.parse(paymentsData) : []); // ✅
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -81,6 +84,74 @@ export const DatabaseProvider = ({ children }) => {
       console.error('Error deleting invoice:', error);
       throw error;
     }
+  };
+
+  // ✅ دالة حساب الرصيد الحالي للزبون
+  const getCustomerBalance = (customerName) => {
+    const customerInvoices = invoices.filter(inv => inv.customer === customerName);
+    if (customerInvoices.length === 0) return 0;
+
+    // ترتيب الفواتير حسب الأقدم أولاً
+    const sortedInvoices = customerInvoices.sort((a, b) => a.id - b.id);
+    const latestInvoice = sortedInvoices[sortedInvoices.length - 1];
+    
+    // حساب الرصيد من آخر فاتورة
+    let balance = (latestInvoice.total || 0) + 
+                  (latestInvoice.previousBalance || 0) - 
+                  (latestInvoice.payment || 0);
+
+    // إضافة جميع الدفعات المستقلة بعد آخر فاتورة
+    const paymentsAfterLastInvoice = payments.filter(
+      p => p.customer === customerName && 
+           new Date(p.createdAt) > new Date(latestInvoice.createdAt)
+    );
+
+    paymentsAfterLastInvoice.forEach(payment => {
+      balance -= payment.amount;
+    });
+
+    return balance;
+  };
+
+  // ✅ إضافة دفعة مستقلة
+  const addPayment = async (paymentData) => {
+    try {
+      const nextId = payments.length > 0 ? Math.max(...payments.map(p => p.id)) + 1 : 1;
+      const newPayment = {
+        id: nextId,
+        customer: paymentData.customer,
+        amount: parseFloat(paymentData.amount),
+        date: paymentData.date || new Date().toISOString().split('T')[0],
+        notes: paymentData.notes || '',
+        createdAt: new Date().toISOString(),
+      };
+
+      const updatedPayments = [...payments, newPayment];
+      await AsyncStorage.setItem('payments', JSON.stringify(updatedPayments));
+      setPayments(updatedPayments);
+
+      return newPayment;
+    } catch (error) {
+      console.error('Error adding payment:', error);
+      throw error;
+    }
+  };
+
+  // ✅ حذف دفعة
+  const deletePayment = async (id) => {
+    try {
+      const updatedPayments = payments.filter(p => p.id !== id);
+      await AsyncStorage.setItem('payments', JSON.stringify(updatedPayments));
+      setPayments(updatedPayments);
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      throw error;
+    }
+  };
+
+  // ✅ الحصول على دفعات زبون معين
+  const getCustomerPayments = (customerName) => {
+    return payments.filter(p => p.customer === customerName);
   };
 
   const saveProduct = async (product) => {
@@ -179,6 +250,7 @@ export const DatabaseProvider = ({ children }) => {
   const value = {
     invoices,
     products,
+    payments, // ✅
     loading,
     saveInvoice,
     updateInvoice,
@@ -189,12 +261,16 @@ export const DatabaseProvider = ({ children }) => {
     clearAllProducts,
     importInvoices,
     importProducts,
+    // ✅ دوال الدفعات الجديدة
+    addPayment,
+    deletePayment,
+    getCustomerPayments,
+    getCustomerBalance,
   };
 
-  // ✅ الكود المُصلح - إعادة Provider بشكل صحيح
   return (
     <DatabaseContext.Provider value={value}>
       {children}
     </DatabaseContext.Provider>
   );
-}; // ⚠️ هذا القوس كان مفقوداً!
+};

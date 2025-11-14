@@ -23,7 +23,13 @@ const CreateInvoiceScreen = ({ navigation }) => {
   const { draftInvoice, saveDraft, clearDraft, hasDraft, isLoading } = useInvoiceDraft();
   
   // البيانات الأساسية
-  const { products, invoices, saveInvoice, saveProduct } = useDatabase();
+  const { 
+    products, 
+    invoices, 
+    saveInvoice, 
+    saveProduct,
+    getCustomerBalance // ✅ إضافة هذا
+  } = useDatabase();
   const productNameInputRef = useRef(null);
   const quantityInputRef = useRef(null);
   const priceInputRef = useRef(null);
@@ -170,126 +176,111 @@ const CreateInvoiceScreen = ({ navigation }) => {
     setCustomerName(customer);
     setShowCustomerSuggestions(false);
     
-    // جلب آخر فاتورة لهذا الزبون لحساب الرصيد السابق
-    const customerInvoices = invoices.filter(inv => inv.customer === customer);
-    if (customerInvoices.length > 0) {
-      const sortedInvoices = customerInvoices.sort((a, b) => b.id - a.id);
-      const latestInvoice = sortedInvoices[0];
-      const remaining = (latestInvoice.total || 0) + 
-        (latestInvoice.previousBalance || 0) - 
-        (latestInvoice.payment || 0);
-      
-      if (remaining !== 0) {
-        setPreviousBalance(String(remaining));
-        Toast.show({
-          type: 'info',
-          text1: 'تم جلب الرصيد السابق',
-          text2: `الرصيد: ${formatCurrency(remaining)} دينار`,
-          position: 'top',
-        });
-      }
+    // ✅ استخدام الدالة الجديدة لحساب الرصيد
+    const currentBalance = getCustomerBalance(customer);
+    
+    if (currentBalance !== 0) {
+      setPreviousBalance(String(currentBalance));
+      Toast.show({
+        type: 'info',
+        text1: 'تم جلب الرصيد السابق',
+        text2: `الرصيد: ${formatCurrency(currentBalance)} دينار`,
+        position: 'top',
+      });
     }
     
-    // الانتقال لحقل المنتج
     setTimeout(() => {
       if (productNameInputRef.current) {
         productNameInputRef.current.focus();
       }
     }, 150);
-  }, [invoices, setPreviousBalance, productNameInputRef]);
+  }, [getCustomerBalance, setPreviousBalance, productNameInputRef]);
 
-  // إضافة منتج للفاتورة
-  const addItemToInvoice = async () => {
-    if (!productName.trim() || !quantity || !price) {
-      Toast.show({
-        type: 'error',
-        text1: 'خطأ',
-        text2: 'يرجى إدخال اسم المنتج والكمية والسعر',
-        position: 'top',
-        visibilityTime: 2000,
-      });
-      
-      // التركيز على أول حقل فارغ
-      if (!productName.trim() && productNameInputRef.current) {
-        productNameInputRef.current.focus();
-      } else if (!quantity && quantityInputRef.current) {
-        quantityInputRef.current.focus();
-      } else if (!price && priceInputRef.current) {
-        priceInputRef.current.focus();
-      }
-      return;
-    }
-
-    const qty = parseFloat(quantity);
-    const prc = parseFloat(price);
-
-    if (qty <= 0 || prc <= 0) {
-      Toast.show({
-        type: 'error',
-        text1: 'خطأ',
-        text2: 'الكمية والسعر يجب أن يكونا أكبر من صفر',
-        position: 'top',
-        visibilityTime: 2000,
-      });
-      return;
-    }
-
-    // حفظ المنتج في قاعدة البيانات
-    try {
-      await saveProduct({
-        name: productName.trim(),
-        price: prc,
-      });
-    } catch (error) {
-      console.error('Error saving product:', error);
-    }
-
-    const newItem = {
-      product: productName.trim(),
-      quantity: qty,
-      price: prc,
-      total: qty * prc,
-      notes: itemNotes.trim(),
-    };
-
-    if (isEditingItem) {
-      // تحديث منتج موجود
-      const updatedItems = [...invoiceItems];
-      updatedItems[editingItemIndex] = newItem;
-      setInvoiceItems(updatedItems);
-      setIsEditingItem(false);
-      setEditingItemIndex(null);
-      
-      Toast.show({
-        type: 'success',
-        text1: 'تم التحديث',
-        text2: 'تم تحديث المنتج بنجاح',
-        position: 'top',
-        visibilityTime: 1500,
-      });
-    } else {
-      // إضافة منتج جديد
-      setInvoiceItems([...invoiceItems, newItem]);
-      
-      Toast.show({
-        type: 'success',
-        text1: '✅ تمت الإضافة',
-        text2: `${productName.trim()}`,
-        position: 'top',
-        visibilityTime: 1500,
-      });
-    }
-
-    // تنظيف الحقول
-    clearItemFields();
+const addItemToInvoice = useCallback(async () => {
+  if (!productName.trim() || !quantity || !price) {
+    Toast.show({
+      type: 'error',
+      text1: 'خطأ',
+      text2: 'يرجى إدخال اسم المنتج والكمية والسعر',
+      position: 'top',
+      visibilityTime: 2000,
+    });
     
-    // التركيز مباشرة على حقل اسم المنتج للإدخال السريع
-    setTimeout(() => {
-      if (productNameInputRef.current) {
-        productNameInputRef.current.focus();
-      }
-    }, 100);
+    if (!productName.trim() && productNameInputRef.current) {
+      productNameInputRef.current.focus();
+    } else if (!quantity && quantityInputRef.current) {
+      quantityInputRef.current.focus();
+    } else if (!price && priceInputRef.current) {
+      priceInputRef.current.focus();
+    }
+    return;
+  }
+
+  const qty = parseFloat(quantity);
+  const prc = parseFloat(price);
+
+  if (qty <= 0 || prc <= 0) {
+    Toast.show({
+      type: 'error',
+      text1: 'خطأ',
+      text2: 'الكمية والسعر يجب أن يكونا أكبر من صفر',
+      position: 'top',
+      visibilityTime: 2000,
+    });
+    return;
+  }
+
+  const newItem = {
+    product: productName.trim(),
+    quantity: qty,
+    price: prc,
+    total: qty * prc,
+    notes: itemNotes.trim(),
   };
+
+  // إضافة فورية للواجهة
+  if (isEditingItem) {
+    const updatedItems = [...invoiceItems];
+    updatedItems[editingItemIndex] = newItem;
+    setInvoiceItems(updatedItems);
+    setIsEditingItem(false);
+    setEditingItemIndex(null);
+    
+    Toast.show({
+      type: 'success',
+      text1: 'تم التحديث',
+      text2: 'تم تحديث المنتج بنجاح',
+      position: 'top',
+      visibilityTime: 1000,
+    });
+  } else {
+    setInvoiceItems([...invoiceItems, newItem]);
+    
+    Toast.show({
+      type: 'success',
+      text1: '✅ تمت الإضافة',
+      text2: `${productName.trim()}`,
+      position: 'top',
+      visibilityTime: 1000,
+    });
+  }
+
+  // تنظيف الحقول فوراً
+  clearItemFields();
+  
+  // التركيز مباشرة على حقل اسم المنتج
+  if (productNameInputRef.current) {
+    productNameInputRef.current.focus();
+  }
+
+  // حفظ المنتج في الخلفية (بدون انتظار)
+  saveProduct({
+    name: productName.trim(),
+    price: prc,
+  }).catch(error => {
+    console.error('Error saving product:', error);
+  });
+}, [productName, quantity, price, itemNotes, invoiceItems, isEditingItem, editingItemIndex, saveProduct]);
 
   // تنظيف حقول المنتج
   const clearItemFields = () => {
@@ -435,56 +426,70 @@ const CreateInvoiceScreen = ({ navigation }) => {
     );
   };
 
-  // عرض منتج في القائمة
   const renderInvoiceItem = ({ item, index }) => (
-    <View style={styles.invoiceItem}>
-      <View style={styles.itemHeader}>
-        <View style={styles.itemNumberBadge}>
-          <Text style={styles.itemNumberText}>{index + 1}</Text>
+    <View style={styles.invoiceItemModern}>
+      {/* شريط علوي ملون */}
+      <View style={styles.itemTopBar} />
+      
+      {/* المحتوى الرئيسي */}
+      <View style={styles.itemContentWrapper}>
+        {/* الرقم والاسم */}
+        <View style={styles.itemHeaderModern}>
+          <View style={styles.itemNumberBadgeModern}>
+            <Text style={styles.itemNumberTextModern}>{toEnglishNumbers(index + 1)}</Text>
+          </View>
+          <Text style={styles.itemProductNameModern}>{item.product}</Text>
         </View>
-        <Text style={styles.itemProductName}>{item.product}</Text>
-      </View>
 
-      <View style={styles.itemDetails}>
-        <View style={styles.itemDetailRow}>
-          <Text style={styles.itemLabel}>الكمية:</Text>
-          <Text style={styles.itemValue}>{toEnglishNumbers(item.quantity)}</Text>
-        </View>
-        <View style={styles.itemDetailRow}>
-          <Text style={styles.itemLabel}>السعر:</Text>
-          <Text style={styles.itemValue}>{formatCurrency(item.price)}</Text>
-        </View>
-        <View style={styles.itemDetailRow}>
-          <Text style={styles.itemLabel}>المجموع:</Text>
-          <Text style={[styles.itemValue, styles.itemTotal]}>
-            {formatCurrency(item.total)}
-          </Text>
-        </View>
-      </View>
+        {/* البيانات في صفوف */}
+        <View style={styles.itemDataGrid}>
+          <View style={styles.itemDataCell}>
+            <Icon name="package-variant" size={16} color={COLORS.textLight} />
+            <Text style={styles.itemDataLabel}>الكمية</Text>
+            <Text style={styles.itemDataValue}>{toEnglishNumbers(item.quantity)}</Text>
+          </View>
 
-      {item.notes ? (
-        <View style={styles.itemNotesContainer}>
-          <Icon name="note-text" size={14} color={COLORS.textLight} />
-          <Text style={styles.itemNotes}>{item.notes}</Text>
+          <View style={styles.itemDataCell}>
+            <Icon name="currency-usd" size={16} color={COLORS.textLight} />
+            <Text style={styles.itemDataLabel}>السعر</Text>
+            <Text style={styles.itemDataValue}>{formatCurrency(item.price)}</Text>
+          </View>
+
+          <View style={[styles.itemDataCell, styles.itemDataCellHighlight]}>
+            <Icon name="sigma" size={16} color={COLORS.primary} />
+            <Text style={styles.itemDataLabel}>المجموع</Text>
+            <Text style={[styles.itemDataValue, styles.itemTotalValue]}>
+              {formatCurrency(item.total)}
+            </Text>
+          </View>
         </View>
-      ) : null}
 
-      <View style={styles.itemActions}>
-        <TouchableOpacity
-          style={[styles.itemActionButton, styles.editButton]}
-          onPress={() => editItem(index)}
-        >
-          <Icon name="pencil" size={18} color="#fff" />
-          <Text style={styles.itemActionText}>تعديل</Text>
-        </TouchableOpacity>
+        {/* الملاحظات */}
+        {item.notes ? (
+          <View style={styles.itemNotesModern}>
+            <Icon name="note-text" size={14} color={COLORS.primary} />
+            <Text style={styles.itemNotesText}>{item.notes}</Text>
+          </View>
+        ) : null}
 
-        <TouchableOpacity
-          style={[styles.itemActionButton, styles.deleteButton]}
-          onPress={() => removeItem(index)}
-        >
-          <Icon name="delete" size={18} color="#fff" />
-          <Text style={styles.itemActionText}>حذف</Text>
-        </TouchableOpacity>
+        {/* الأزرار */}
+        <View style={styles.itemActionsModern}>
+          <TouchableOpacity
+            style={[styles.itemActionBtnModern, styles.editBtnModern]}
+            onPress={() => editItem(index)}
+          >
+            <Icon name="pencil" size={16} color="#fff" />
+            <Text style={styles.itemActionTextModern}>تعديل</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.itemActionBtnModern, styles.deleteBtnModern]}
+            onPress={() => removeItem(index)}
+          >
+            <Icon name="delete" size={16} color="#fff" />
+            <Text style={styles.itemActionTextModern}>حذف</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -496,8 +501,8 @@ const CreateInvoiceScreen = ({ navigation }) => {
     >
       {/* الهيدر */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>محلات ابو جعفر الرديني</Text>
-        <Text style={styles.headerSubtitle}>للمواد الغذائية والحلويات</Text>
+        <Text style={styles.headerTitle}>محل استاذ خالد كوزمتك</Text>
+        <Text style={styles.headerSubtitle}>لبيع العطور بادراة عبدالله علي</Text>
       </View>
 
       {/* مؤشر المسودة */}
@@ -669,7 +674,9 @@ const CreateInvoiceScreen = ({ navigation }) => {
                 keyboardType="numeric"
                 placeholderTextColor={COLORS.textLight}
                 returnKeyType="done"
-                onSubmitEditing={addItemToInvoice}
+                onSubmitEditing={() => {
+                  addItemToInvoice();
+                }}
               />
             </View>
           </View>
@@ -1087,6 +1094,132 @@ const styles = StyleSheet.create({
   creditValue: {
     color: COLORS.success,
   },
+
+  // --- بداية الأنماط الجديدة المضافة ---
+  // تصميم المنتجات المحدث
+  invoiceItemModern: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    elevation: 3,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  itemTopBar: {
+    height: 4,
+    backgroundColor: COLORS.primary,
+  },
+  itemContentWrapper: {
+    padding: 16,
+  },
+  itemHeaderModern: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.backgroundLight,
+  },
+  itemNumberBadgeModern: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemNumberTextModern: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  itemProductNameModern: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '700',
+    color: COLORS.textDark,
+  },
+  itemDataGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  itemDataCell: {
+    flex: 1,
+    backgroundColor: COLORS.backgroundLight,
+    borderRadius: 10,
+    padding: 10,
+    alignItems: 'center',
+    gap: 4,
+  },
+  itemDataCellHighlight: {
+    backgroundColor: '#f0f9ff',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  itemDataLabel: {
+    fontSize: 11,
+    color: COLORS.textLight,
+    fontWeight: '600',
+  },
+  itemDataValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.textDark,
+  },
+  itemTotalValue: {
+    fontSize: 16,
+    color: COLORS.primary,
+  },
+  itemNotesModern: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#fef3c7',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.warning,
+  },
+  itemNotesText: {
+    flex: 1,
+    fontSize: 13,
+    color: COLORS.textDark,
+    lineHeight: 18,
+  },
+  itemActionsModern: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  itemActionBtnModern: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  editBtnModern: {
+    backgroundColor: COLORS.primary,
+  },
+  deleteBtnModern: {
+    backgroundColor: COLORS.danger,
+  },
+  itemActionTextModern: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  // --- نهاية الأنماط الجديدة المضافة ---
+
 });
 
-export default CreateInvoiceScreen
+export default CreateInvoiceScreen;

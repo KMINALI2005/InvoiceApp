@@ -212,7 +212,7 @@ const InvoicesScreen = ({ navigation }) => {
 
       const file = result[0];
       
-      if (!file.uri.endsWith('.json') && !file.name.endsWith('.json')) {
+      if (!file.uri.endsWith('.json') && !file.name.endsWith('.json') && file.type !== 'application/json') {
         Toast.show({
           type: 'error',
           text1: 'خطأ',
@@ -401,8 +401,19 @@ const InvoicesScreen = ({ navigation }) => {
         <View style={styles.invoiceActions}>
           <TouchableOpacity
             style={[styles.actionButton, styles.printButton]}
-            onPress={() => printInvoiceEnhanced(invoice)}
-          >
+            onPress={async () => {
+              const result = await printInvoiceEnhanced(invoice);
+              if (result.success) {
+               Toast.show({
+                 type: 'success',
+                 text1: 'تمت الطباعة',
+                 text2: 'تم إرسال الفاتورة للطابعة',
+                 position: 'top',
+                 visibilityTime: 2000,
+                });
+               }
+             }}
+           >
             <Icon name="printer" size={18} color="#fff" />
             <Text style={styles.actionButtonText}>طباعة</Text>
           </TouchableOpacity>

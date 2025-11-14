@@ -1,74 +1,74 @@
-// src/utils/colors.js - نظام ألوان عصري 2025
+// src/utils/colors.js - نظام ألوان بنكهة النعناع الهادئ (2025)
 
 export const COLORS = {
-  // الألوان الأساسية - Gradient Modern
-  primary: '#6366f1',        // Indigo حديث
-  primaryDark: '#4f46e5',    // Indigo داكن
-  primaryLight: '#818cf8',   // Indigo فاتح
+  // الألوان الأساسية - نعناع هادئ
+  primary: '#4ADDAF',        // نعناعي منعش (Mint Green)
+  primaryDark: '#3BBA9C',    // نعناعي داكن
+  primaryLight: '#A0E8D5',   // نعناعي فاتح
   
-  secondary: '#8b5cf6',      // Purple عصري
-  secondaryDark: '#7c3aed',
-  secondaryLight: '#a78bfa',
+  secondary: '#80DEEA',      // سماوي هادئ (Calm Cyan/Blue)
+  secondaryDark: '#4FC3F7',
+  secondaryLight: '#B2EBF2',
   
-  accent: '#ec4899',         // Pink جذاب
-  accentDark: '#db2777',
-  accentLight: '#f472b6',
+  accent: '#FFD54F',         // أصفر ليموني ناعم (Soft Yellow)
+  accentDark: '#FFC107',
+  accentLight: '#FFF176',
   
   // ألوان الحالة
-  success: '#10b981',        // Green زاهي
-  successDark: '#059669',
-  successLight: '#34d399',
+  success: '#2ECC71',        // أخضر نجاح واضح
+  successDark: '#27AE60',
+  successLight: '#58D68D',
   
-  warning: '#f59e0b',        // Amber دافئ
-  warningDark: '#d97706',
-  warningLight: '#fbbf24',
+  warning: '#FFA726',        // برتقالي دافئ (Warm Orange)
+  warningDark: '#FB8C00',
+  warningLight: '#FFB74D',
   
-  danger: '#ef4444',         // Red قوي
-  dangerDark: '#dc2626',
-  dangerLight: '#f87171',
+  danger: '#EF5350',         // أحمر ناعم (Soft Red)
+  dangerDark: '#E53935',
+  dangerLight: '#E57373',
   
-  info: '#06b6d4',           // Cyan منعش
-  infoDark: '#0891b2',
-  infoLight: '#22d3ee',
+  info: '#80DEEA',           // سماوي (نفس اللون الثانوي)
+  infoDark: '#4FC3F7',
+  infoLight: '#B2EBF2',
   
   // ألوان الخلفية
-  background: '#f8fafc',     // رمادي فاتح جداً
-  backgroundSoft: '#f1f5f9',
-  backgroundLight: '#e2e8f0',
+  background: '#F9FAFB',     // رمادي فاتح جداً (Off-white)
+  backgroundSoft: '#F4F6F8', // رمادي ناعم
+  backgroundLight: '#E5E7EB', // رمادي فاتح
   
   // ألوان الكروت
-  cardBg: '#ffffff',
-  cardBorder: '#e2e8f0',
-  cardShadow: 'rgba(100, 102, 241, 0.1)',
+  cardBg: '#FFFFFF',
+  cardBorder: '#E5E7EB',
+  cardShadow: 'rgba(74, 221, 175, 0.08)', // ظل بلون نعناعي خفيف
   
   // ألوان النصوص
-  textDark: '#0f172a',       // أسود مزرق
-  textMedium: '#475569',     // رمادي متوسط
-  textLight: '#94a3b8',      // رمادي فاتح
+  textDark: '#1F2937',       // رمادي داكن جداً (أسهل للعين من الأسود)
+  textMedium: '#6B7280',     // رمادي متوسط
+  textLight: '#9CA3AF',      // رمادي فاتح
   textWhite: '#ffffff',
   
   // ألوان الحدود
-  border: '#e2e8f0',
-  borderDark: '#cbd5e1',
+  border: '#E5E7EB',
+  borderDark: '#D1D5DB',
   
   // ألوان الظلال
-  shadow: 'rgba(15, 23, 42, 0.1)',
-  shadowMedium: 'rgba(15, 23, 42, 0.15)',
-  shadowDark: 'rgba(15, 23, 42, 0.25)',
+  shadow: 'rgba(31, 41, 55, 0.08)',
+  shadowMedium: 'rgba(31, 41, 55, 0.12)',
+  shadowDark: 'rgba(31, 41, 55, 0.20)',
 };
 
-// Gradients عصرية
+// Gradients هادئة
 export const GRADIENTS = {
-  primary: ['#6366f1', '#8b5cf6'],           // Indigo to Purple
-  secondary: ['#8b5cf6', '#ec4899'],         // Purple to Pink
-  success: ['#10b981', '#06b6d4'],           // Green to Cyan
-  danger: ['#ef4444', '#f97316'],            // Red to Orange
-  warning: ['#f59e0b', '#eab308'],           // Amber to Yellow
-  info: ['#06b6d4', '#3b82f6'],              // Cyan to Blue
-  dark: ['#4f46e5', '#6366f1'],              // Dark Indigo
-  sunset: ['#ec4899', '#f59e0b'],            // Pink to Amber
-  ocean: ['#06b6d4', '#8b5cf6'],             // Cyan to Purple
-  forest: ['#10b981', '#6366f1'],            // Green to Indigo
+  primary: ['#4ADDAF', '#80DEEA'],           // نعناعي إلى سماوي
+  secondary: ['#80DEEA', '#A0E8D5'],         // سماوي إلى نعناعي فاتح
+  success: ['#2ECC71', '#58D68D'],           // تدرج أخضر
+  danger: ['#EF5350', '#E57373'],            // تدرج أحمر ناعم
+  warning: ['#FFA726', '#FFB74D'],           // تدرج برتقالي
+  info: ['#80DEEA', '#B2EBF2'],              // تدرج سماوي
+  dark: ['#3BBA9C', '#4ADDAF'],              // تدرج نعناعي داكن
+  sunset: ['#FFD54F', '#FFA726'],            // أصفر إلى برتقالي (غروب ناعم)
+  ocean: ['#80DEEA', '#4ADDAF'],             // (مثل الأساسي)
+  forest: ['#2ECC71', '#3BBA9C'],            // أخضر إلى نعناعي داكن
 };
 
 export default { COLORS, GRADIENTS };

@@ -334,8 +334,8 @@ const _generateInvoiceHtml = (invoice) => {
           <div class="brand-section">
             <div class="logo-modern">JR</div>
             <div class="company-name">
-              <h1>محلات ابو جعفر الرديني</h1>
-              <div class="company-subtitle">للمواد الغذائية والحلويات</div>
+              <h1>محل استاذ خالد كوزمتك</h1>
+              <div class="company-subtitle">لبيع العطور بادراة عبدالله علي</div>
             </div>
           </div>
           <div class="invoice-badge">
@@ -347,15 +347,15 @@ const _generateInvoiceHtml = (invoice) => {
           <div class="contact-card">
             <div class="contact-icon">📞</div>
             <div class="contact-info">
-              <span class="contact-label">جعفر:</span>
-              <span class="contact-number">07731103122 | 07800379300</span>
+              <span class="contact-label">عبدالله:</span>
+              <span class="contact-number">07707750781</span>
             </div>
           </div>
           <div class="contact-card">
             <div class="contact-icon">📱</div>
             <div class="contact-info">
-              <span class="contact-label">حسين:</span>
-              <span class="contact-number">07826342265</span>
+              <span class="contact-label">استاذ خالد:</span>
+              <span class="contact-number">07905077130</span>
             </div>
           </div>
         </div>
@@ -469,62 +469,15 @@ export const printInvoiceEnhanced = async (invoice) => {
   try {
     const html = _generateInvoiceHtml(invoice);
 
-    // عرض خيارات للمستخدم
-    Alert.alert(
-      'طباعة الفاتورة',
-      'اختر الإجراء المطلوب',
-      [
-        {
-          text: 'طباعة مباشرة 🖨️',
-          onPress: async () => {
-            try {
-              await RNPrint.print({
-                html: html,
-              });
-            } catch (error) {
-              console.error('Print Error:', error);
-              Alert.alert('خطأ', 'فشلت عملية الطباعة');
-            }
-          },
-        },
-        {
-          text: 'حفظ كـ PDF 📄',
-          onPress: async () => {
-            try {
-              const filePath = await RNPrint.print({
-                html: html,
-                fileName: `فاتورة_${invoice.customer}_${invoice.id}`,
-                isLandscape: false,
-              });
-              
-              Alert.alert(
-                'تم الحفظ!',
-                'تم حفظ الفاتورة بصيغة PDF',
-                [
-                  {
-                    text: 'مشاركة',
-                    onPress: () => shareFile(filePath),
-                  },
-                  { text: 'حسناً' },
-                ]
-              );
-            } catch (error) {
-              console.error('Save PDF Error:', error);
-              Alert.alert('خطأ', 'فشل حفظ الملف');
-            }
-          },
-        },
-        {
-          text: 'إلغاء',
-          style: 'cancel',
-        },
-      ],
-      { cancelable: true }
-    );
+    // طباعة مباشرة بدون رسالة تأكيد
+    await RNPrint.print({
+      html: html,
+    });
 
     return { success: true };
   } catch (error) {
     console.error('Print Error:', error);
+    Alert.alert('خطأ', 'فشلت عملية الطباعة');
     return { success: false, error: error.message };
   }
 };
@@ -665,7 +618,7 @@ export const printCustomerStatement = async (customerName, invoices) => {
       </head>
       <body>
         <div class="header">
-          <h1>محلات ابو جعفر الرديني</h1>
+          <h1>محل استاذ خالد كوزمتك</h1>
           <h2>كشف حساب زبون</h2>
         </div>
         
@@ -722,15 +675,8 @@ export const printCustomerStatement = async (customerName, invoices) => {
       await RNPrint.print({ html: html });
       return { success: true };
     }
-  } catch (error) {
-    console.error('Print Customer Statement Error:', error);
-    Alert.alert('خطأ', 'فشلت عملية الطباعة');
-    return { success: false, error: error.message };
-  }
-};
-
-export default {
-  printInvoice,
-  printCustomerStatement,
-  printInvoiceEnhanced, // Export the new function
+} catch (error) {
+  console.error('Print Customer Statement Error:', error);
+  return { success: false, error: error.message || 'فشلت عملية الطباعة' };
+}
 };
