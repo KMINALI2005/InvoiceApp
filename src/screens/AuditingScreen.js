@@ -60,18 +60,23 @@ const AuditingScreen = ({ navigation }) => {
     return grouped;
   }, [invoices]);
 
-  const filteredCustomerNames = useMemo(() => {
-    let customers = Object.keys(groupedInvoices);
-    
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      customers = customers.filter(name => 
-        name.toLowerCase().includes(query)
-      );
-    }
+const filteredCustomerNames = useMemo(() => {
+  let customers = Object.keys(groupedInvoices);
+  
+  if (searchQuery.trim()) {
+    const query = searchQuery.toLowerCase();
+    customers = customers.filter(name => 
+      name.toLowerCase().includes(query)
+    );
+  }
 
-    return customers.sort((a, b) => a.localeCompare(b, 'ar'));
-  }, [groupedInvoices, searchQuery]);
+  // ترتيب حسب آخر فاتورة (الأحدث أولاً)
+  return customers.sort((a, b) => {
+    const latestInvoiceA = groupedInvoices[a][0]; // أول فاتورة في المجموعة (الأحدث)
+    const latestInvoiceB = groupedInvoices[b][0];
+    return latestInvoiceB.id - latestInvoiceA.id; // الأحدث أولاً
+  });
+}, [groupedInvoices, searchQuery]);
 
   // ✅ حساب الإحصائيات باستخدام الدالة الجديدة
   const totalStats = useMemo(() => {

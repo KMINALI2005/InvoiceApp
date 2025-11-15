@@ -1,4 +1,5 @@
 // src/screens/CreateInvoiceScreen.js
+import { useIsFocused } from '@react-navigation/native';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
@@ -20,6 +21,7 @@ import { COLORS, GRADIENTS } from '../utils/colors';
 import Toast from 'react-native-toast-message';
 
 const CreateInvoiceScreen = ({ navigation }) => {
+  const isFocused = useIsFocused();
   const { draftInvoice, saveDraft, clearDraft, hasDraft, isLoading } = useInvoiceDraft();
   
   // البيانات الأساسية
@@ -158,18 +160,16 @@ const CreateInvoiceScreen = ({ navigation }) => {
   }, [customerName, invoices, selectCustomer]);
 
   // اختيار منتج من الاقتراحات
-  const selectProduct = (product) => {
-    setProductName(product.name);
-    setPrice(product.price.toString());
-    setShowProductSuggestions(false);
-    
-    // التركيز تلقائياً على حقل الكمية
-    setTimeout(() => {
-      if (quantityInputRef.current) {
-        quantityInputRef.current.focus();
-      }
-    }, 100);
-  };
+const selectProduct = (product) => {
+  setProductName(product.name);
+  setPrice(product.price.toString());
+  setShowProductSuggestions(false);
+  
+  // التركيز فوري على حقل الكمية بدون تأخير
+  if (quantityInputRef.current) {
+    quantityInputRef.current.focus();
+  }
+};
 
   // اختيار زبون من الاقتراحات
   const selectCustomer = useCallback((customer) => {
@@ -601,6 +601,33 @@ const addItemToInvoice = useCallback(async () => {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>اسم المنتج:</Text>
+            <View style={styles.inputGroup}>
+  <View style={styles.labelRow}>
+    <Text style={styles.label}>اسم المنتج:</Text>
+    <TouchableOpacity
+      style={styles.barcodeButton}
+      onPress={() => {
+        navigation.navigate('BarcodeScanner', {
+          onScan: (barcode) => {
+            setProductName(barcode);
+            // البحث عن المنتج بالباركود
+            const product = products.find(p => p.barcode === barcode);
+            if (product) {
+              setPrice(product.price.toString());
+              if (quantityInputRef.current) {
+                quantityInputRef.current.focus();
+              }
+            }
+          },
+        });
+      }}
+    >
+      <Icon name="barcode-scan" size={20} color={COLORS.primary} />
+      <Text style={styles.barcodeButtonText}>مسح</Text>
+    </TouchableOpacity>
+  </View>
+  {/* باقي كود حقل اسم المنتج... */}
+</View>
             <View style={styles.autocompleteContainer}>
               <TextInput
                 ref={productNameInputRef}
@@ -624,43 +651,53 @@ const addItemToInvoice = useCallback(async () => {
                 }}
               />
               
-              {showProductSuggestions && (
-                <View style={styles.suggestionsContainer}>
-                  {filteredProducts.map((product) => (
-                    <TouchableOpacity
-                      key={product.id}
-                      style={styles.suggestionItem}
-                      onPress={() => selectProduct(product)}
-                    >
-                      <Text style={styles.suggestionName}>{product.name}</Text>
-                      <Text style={styles.suggestionPrice}>
-                        {formatCurrency(product.price)} دينار
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+{showProductSuggestions && (
+  <View style={styles.suggestionsContainer}>
+    {filteredProducts.map((product) => (
+      <TouchableOpacity
+        key={product.id}
+        style={styles.suggestionItem}
+        onPress={() => selectProduct(product)}
+        activeOpacity={0.6}
+      >
+        <View style={styles.suggestionContent}>
+          <Icon name="package-variant" size={20} color={COLORS.primary} />
+          <View style={styles.suggestionTextContainer}>
+            <Text style={styles.suggestionName}>{product.name}</Text>
+            <Text style={styles.suggestionPrice}>
+              {formatCurrency(product.price)} دينار
+            </Text>
+          </View>
+          <Icon name="chevron-left" size={20} color={COLORS.textLight} />
+        </View>
+      </TouchableOpacity>
+    ))}
+  </View>
+)}
             </View>
           </View>
 
           <View style={styles.row}>
             <View style={[styles.inputGroup, styles.flex1]}>
               <Text style={styles.label}>الكمية:</Text>
-              <TextInput
-                ref={quantityInputRef}
-                style={styles.input}
-                value={quantity}
-                onChangeText={setQuantity}
-                placeholder="0"
-                keyboardType="numeric"
-                placeholderTextColor={COLORS.textLight}
-                returnKeyType="next"
-                onSubmitEditing={() => {
-                  if (priceInputRef.current) {
-                    priceInputRef.current.focus();
-                  }
-                }}
-              />
+<TextInput
+  ref={quantityInputRef}
+  style={styles.input}
+  value={quantity}
+  onChangeText={setQuantity}
+  placeholder="0"
+  keyboardType="numeric"
+  placeholderTextColor={COLORS.textLight}
+  returnKeyType="done"
+  onSubmitEditing={() => {
+    // إذا كان السعر موجود، أضف المنتج مباشرة
+    if (price && parseFloat(price) > 0) {
+      addItemToInvoice();
+    } else if (priceInputRef.current) {
+      priceInputRef.current.focus();
+    }
+  }}
+/>
             </View>
 
             <View style={[styles.inputGroup, styles.flex1]}>
@@ -1218,8 +1255,50 @@ lineTotalValue: {
     fontSize: 13,
     fontWeight: '700',
   },
-  // --- نهاية الأنماط الجديدة المضافة ---
 
+  suggestionContent: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 12,
+  width: '100%',
+},
+suggestionTextContainer: {
+  flex: 1,
+},
+suggestionName: {
+  fontSize: 15,
+  fontWeight: '700',
+  color: COLORS.textDark,
+  marginBottom: 4,
+},
+suggestionPrice: {
+  fontSize: 13,
+  color: COLORS.success,
+  fontWeight: '700',
+},
+  // --- نهاية الأنماط الجديدة المضافة ---
+labelRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 8,
+},
+barcodeButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 6,
+  backgroundColor: COLORS.primaryLight,
+  paddingHorizontal: 12,
+  paddingVertical: 6,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: COLORS.primary,
+},
+barcodeButtonText: {
+  fontSize: 13,
+  fontWeight: '700',
+  color: COLORS.primary,
+},
 });
 
 export default CreateInvoiceScreen;

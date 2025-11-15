@@ -1,13 +1,23 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- هذا الإذن موجود افتراضيًا وهو ضروري للاتصال بالإنترنت -->
+    <!-- إذن ضروري للاتصال بالإنترنت -->
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- ✨ الأذونات الجديدة التي أضفناها من المخطط ✨ -->
-    <!-- تسمح للتطبيق بحفظ (كتابة) الملفات على مساحة تخزين الهاتف -->
+    
+    <!-- أذونات تسمح بقراءة وكتابة الملفات على مساحة التخزين -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <!-- تسمح للتطبيق بقراءة الملفات من مساحة تخزين الهاتف -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
+    <!-- ================================================================ -->
+    <!-- ✨ الأذونات والميزات الجديدة التي تمت إضافتها للباركود ✨ -->
+    <!-- ================================================================ -->
+
+    <!-- إذن للسماح للتطبيق باستخدام الكاميرا -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- يخبر النظام أن التطبيق يستخدم الكاميرا، لكنها ليست شرطًا أساسيًا لعمله -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    
 
 
     <application

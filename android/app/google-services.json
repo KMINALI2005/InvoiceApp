@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1090347854296",
+    "project_id": "foaterpro",
+    "storage_bucket": "foaterpro.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1090347854296:android:6437e1dd07c31c80d0eaad",
+        "android_client_info": {
+          "package_name": "com.invoiceapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAUgYlGUoFSJHLDrC46CYCBUx_wv4PQhnQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

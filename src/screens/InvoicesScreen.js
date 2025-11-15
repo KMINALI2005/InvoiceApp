@@ -433,6 +433,14 @@ const InvoicesScreen = ({ navigation }) => {
             <Icon name="pencil" size={18} color="#fff" />
             <Text style={styles.actionButtonText}>تعديل</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+  style={[styles.actionBtn, styles.customizeBtn]}
+  onPress={() => navigation.navigate('InvoiceTemplate')}
+  
+>
+  <Icon name="palette" size={20} color="#fff" />
+  <Text style={styles.actionBtnText}>تخصيص الفاتورة</Text>
+</TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}
@@ -504,6 +512,7 @@ const InvoicesScreen = ({ navigation }) => {
           <View style={styles.customerActions}>
             <TouchableOpacity
               style={[styles.customerActionButton, { backgroundColor: COLORS.success }]}
+              
               onPress={(e) => {
                 e.stopPropagation();
                 handlePrintCustomerStatement(customerName, invoices);
@@ -687,6 +696,14 @@ const InvoicesScreen = ({ navigation }) => {
             </TouchableOpacity>
           )}
         </View>
+
+        <TouchableOpacity
+  style={[styles.actionBtn, styles.cloudBtn]}
+  onPress={() => navigation.navigate('CloudBackup')}
+>
+  <Icon name="cloud-upload" size={20} color="#fff" />
+  <Text style={styles.actionBtnText}>النسخ السحابي</Text>
+</TouchableOpacity>
         
         {/* أزرار الإجراءات الجديدة */}
         <View style={styles.actionsSection}>
@@ -1263,6 +1280,12 @@ statCard: {
     fontWeight: '700',
     color: '#fff',
   },
+  cloudBtn: {
+  backgroundColor: COLORS.info,
+},
+customizeBtn: {
+  backgroundColor: COLORS.warning,
+},
 });
 
 export default InvoicesScreen;

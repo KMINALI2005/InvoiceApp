@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNPrint from 'react-native-print';
 import Share from 'react-native-share';
 import { Alert, Platform } from 'react-native'; // Added Platform for potential future use
@@ -6,12 +7,38 @@ import { formatCurrency, toEnglishNumbers, getCurrentDate, getCurrentTime } from
 /**
  * دالة مساعدة لتوليد كود HTML للفاتورة.
  */
-const _generateInvoiceHtml = (invoice) => {
+const _generateInvoiceHtml = async (invoice) => {
+  // تحميل القالب المخصص
+  let template = {
+    shopName: 'محل استاذ خالد كوزمتك',
+    shopSubtitle: 'لبيع العطور بادراة عبدالله علي',
+    phone1: '07707750781',
+    phone1Label: 'عبدالله',
+    phone2: '07905077130',
+    phone2Label: 'استاذ خالد',
+    address: 'بلدروز - مقابل مطعم - بغداد - داخل القيصرية',
+    logoUri: '',
+  };
+
+  try {
+    const savedTemplate = await AsyncStorage.getItem('invoiceTemplate');
+    if (savedTemplate) {
+      template = { ...template, ...JSON.parse(savedTemplate) };
+    }
+  } catch (error) {
+    console.log('Error loading template:', error);
+  }
+
   const remaining = (invoice.total || 0) + (invoice.previousBalance || 0) - (invoice.payment || 0);
   const totalWithPrevious = (invoice.total || 0) + (invoice.previousBalance || 0);
   
   const currentTime = getCurrentTime();
   const invoiceDate = toEnglishNumbers(invoice.date);
+
+  // إنشاء HTML للشعار إذا كان موجوداً
+  const logoHtml = template.logoUri 
+    ? `<img src="${template.logoUri}" alt="Logo" style="width: 50px; height: 50px; object-fit: contain;" />`
+    : `<div class="logo-modern">JR</div>`;
 
   return `
     <!DOCTYPE html>
@@ -43,7 +70,6 @@ const _generateInvoiceHtml = (invoice) => {
           background: white;
         }
         
-        /* تصميم الرأس العصري */
         .header {
           border: 2.5px solid #000;
           border-radius: 10px;
@@ -111,7 +137,6 @@ const _generateInvoiceHtml = (invoice) => {
           white-space: nowrap;
         }
         
-        /* تصميم الاتصال العصري - أفقي */
         .contacts-row {
           display: flex;
           justify-content: space-between;
@@ -188,7 +213,6 @@ const _generateInvoiceHtml = (invoice) => {
           color: #000;
         }
         
-        /* معلومات الفاتورة */
         .invoice-info {
           display: grid;
           grid-template-columns: 2fr 1fr 1fr;
@@ -212,7 +236,6 @@ const _generateInvoiceHtml = (invoice) => {
           color: #000;
         }
         
-        /* جدول المنتجات المحسن */
         .items-table {
           width: 100%;
           border-collapse: collapse;
@@ -241,7 +264,7 @@ const _generateInvoiceHtml = (invoice) => {
           text-align: right;
           padding-right: 8px;
           font-weight: 600;
-          font-size: 10pt;
+          font-size: 10.5pt;
           color: #000;
         }
         
@@ -249,9 +272,8 @@ const _generateInvoiceHtml = (invoice) => {
           background: #f8f8f8;
         }
         
-        /* ملخص الحساب - مستطيلات أرفع */
         .summary-section {
-          padding-top: 6px;
+          padding-top: 8px;
           margin-top: 8px;
           border-top: 2.5px solid #000;
           page-break-inside: avoid;
@@ -332,10 +354,10 @@ const _generateInvoiceHtml = (invoice) => {
       <header class="header">
         <div class="header-main">
           <div class="brand-section">
-            <div class="logo-modern">JR</div>
+            ${logoHtml}
             <div class="company-name">
-              <h1>محل استاذ خالد كوزمتك</h1>
-              <div class="company-subtitle">لبيع العطور بادراة عبدالله علي</div>
+              <h1>${template.shopName}</h1>
+              <div class="company-subtitle">${template.shopSubtitle}</div>
             </div>
           </div>
           <div class="invoice-badge">
@@ -347,22 +369,22 @@ const _generateInvoiceHtml = (invoice) => {
           <div class="contact-card">
             <div class="contact-icon">📞</div>
             <div class="contact-info">
-              <span class="contact-label">عبدالله:</span>
-              <span class="contact-number">07707750781</span>
+              <span class="contact-label">${template.phone1Label}:</span>
+              <span class="contact-number">${template.phone1}</span>
             </div>
           </div>
           <div class="contact-card">
             <div class="contact-icon">📱</div>
             <div class="contact-info">
-              <span class="contact-label">استاذ خالد:</span>
-              <span class="contact-number">07905077130</span>
+              <span class="contact-label">${template.phone2Label}:</span>
+              <span class="contact-number">${template.phone2}</span>
             </div>
           </div>
         </div>
         
         <div class="address-bar">
           <span class="address-icon">📍</span>
-          <span class="address-text">بلدروز - مقابل مطعم - بغداد - داخل القيصرية</span>
+          <span class="address-text">${template.address}</span>
         </div>
       </header>
       
@@ -467,7 +489,7 @@ export const printInvoice = async (invoice) => {
  */
 export const printInvoiceEnhanced = async (invoice) => {
   try {
-    const html = _generateInvoiceHtml(invoice);
+    const html = await _generateInvoiceHtml(invoice);
 
     // طباعة مباشرة بدون رسالة تأكيد
     await RNPrint.print({
